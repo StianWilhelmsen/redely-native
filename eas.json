@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-0w3frm5m8ingvvge.us.auth0.com",
+        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oWp48x7bCGAwC8goELkny56w0lZfXig7",
+        "EXPO_PUBLIC_API_URL": "https://ryddig-kollektiv-backend.onrender.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6794833285"
+      }
+    }
+  }
+}

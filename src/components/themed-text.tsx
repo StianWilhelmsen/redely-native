@@ -1,22 +1,40 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { FontFamily, Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'display'
+    | 'title'
+    | 'heading'
+    | 'eyebrow'
+    | 'small'
+    | 'smallBold'
+    | 'subtitle'
+    | 'link'
+    | 'linkPrimary'
+    | 'code';
   themeColor?: ThemeColor;
 };
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
+  // Eyebrows and links default to their semantic colors unless overridden.
+  const defaultColor: ThemeColor =
+    themeColor ?? (type === 'eyebrow' ? 'textSecondary' : type === 'linkPrimary' ? 'brand' : 'text');
+
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        { color: theme[defaultColor] },
         type === 'default' && styles.default,
+        type === 'display' && styles.display,
         type === 'title' && styles.title,
+        type === 'heading' && styles.heading,
+        type === 'eyebrow' && styles.eyebrow,
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
         type === 'subtitle' && styles.subtitle,
@@ -30,40 +48,60 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
+// NOTE: custom fonts don't synthesize weights on Android — always pick the
+// family, never set fontWeight alongside these styles.
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
     lineHeight: 20,
-    fontWeight: 500,
   },
   smallBold: {
-    fontSize: 14,
+    fontFamily: FontFamily.semiBold,
+    fontSize: 13,
     lineHeight: 20,
-    fontWeight: 700,
   },
   default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
+    fontFamily: FontFamily.regular,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  display: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 30,
+    lineHeight: 40,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontFamily: FontFamily.bold,
+    fontSize: 44,
+    lineHeight: 54,
+  },
+  heading: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 17,
+    lineHeight: 25,
+  },
+  eyebrow: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontFamily: FontFamily.semiBold,
+    fontSize: 28,
+    lineHeight: 40,
   },
   link: {
+    fontFamily: FontFamily.medium,
     lineHeight: 30,
-    fontSize: 14,
+    fontSize: 13,
   },
   linkPrimary: {
+    fontFamily: FontFamily.semiBold,
     lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
+    fontSize: 13,
   },
   code: {
     fontFamily: Fonts.mono,

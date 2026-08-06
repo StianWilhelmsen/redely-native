@@ -1,23 +1,31 @@
 {
   "expo": {
-    "name": "ryddig-kollektiv-native",
-    "slug": "ryddig-kollektiv-native",
+    "name": "Redely",
+    "slug": "redely",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ryddigkollektivnative",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.wilhelmsen.ryddigkollektiv",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.wilhelmsen.ryddigkollektiv",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F5EEE1",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
@@ -28,15 +36,40 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F3EAF2",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ryddig Kollektiv trenger tilgang til bildene dine for å sette profilbilde."
+        }
+      ],
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-foreground.png",
+          "color": "#C9573F"
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9a6294df-b115-4120-820d-bac1b3fe8074"
+      }
+    },
+    "owner": "wilhelmsen-as"
   }
 }

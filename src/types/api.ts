@@ -195,3 +195,8 @@ export type ChatMessage = {
   imageUrl: string | null;
   createdAt: string; // ISO instant
 };
+
+export type ChatReadState = {
+  userId: number;
+  lastReadMessageId: number;
+};

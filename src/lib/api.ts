@@ -3,6 +3,7 @@ import { env } from '@/lib/env';
 import type {
   ActivityEvent,
   ChatMessage,
+  ChatReadState,
   Collective,
   CollectiveStats,
   CreateTaskInput,
@@ -169,4 +170,7 @@ export const api = {
     if (image) form.append('image', image as unknown as Blob);
     return request<ChatMessage>('/api/chat/messages', { method: 'POST', body: form });
   },
+  chatReadStates: () => request<ChatReadState[]>('/api/chat/read-states'),
+  markChatRead: (messageId: number) =>
+    request<void>('/api/chat/read', { method: 'PUT', body: JSON.stringify({ messageId }) }),
 };

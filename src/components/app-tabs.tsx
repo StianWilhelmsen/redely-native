@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 import { Tabs, TabList, TabSlot, TabTrigger, type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -39,9 +39,25 @@ export default function AppTabs() {
 
   // Persists outside the app too (app icon), unlike an in-app-only dot - this is
   // the only place these notifications leave a trace once the push itself is gone.
+  const totalUnread = chatUnread + paymentsUnread;
+  const totalUnreadRef = useRef(totalUnread);
+  totalUnreadRef.current = totalUnread;
+
   useEffect(() => {
-    Notifications.setBadgeCountAsync(chatUnread + paymentsUnread).catch(() => {});
-  }, [chatUnread, paymentsUnread]);
+    Notifications.setBadgeCountAsync(totalUnread).catch(() => {});
+  }, [totalUnread]);
+
+  // Belt-and-suspenders: also re-sync whenever the app returns to the foreground.
+  // Guards against a stale badge from e.g. a cold-launch race where this effect's
+  // first run fires before SWR/AsyncStorage have finished loading their real values.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Notifications.setBadgeCountAsync(totalUnreadRef.current).catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const showDot: Partial<Record<string, boolean>> = {
     chat: chatUnread > 0,

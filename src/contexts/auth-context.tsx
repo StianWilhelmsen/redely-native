@@ -1,4 +1,5 @@
 import * as AuthSession from 'expo-auth-session';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 import {
   createContext,
@@ -10,20 +11,21 @@ import {
   type ReactNode,
 } from 'react';
 
-import { env } from '@/lib/env';
 import {
-  exchangeCode,
-  getTokensSnapshot,
-  getUser,
-  loadPersistedTokens,
   clearSession,
+  getSessionSnapshot,
+  getUser,
+  loadPersistedSession,
   subscribe,
   type AuthUser,
-  type StoredTokens,
 } from '@/lib/auth-store';
 import { clearPushToken } from '@/lib/push-notifications';
+import { supabase } from '@/lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 WebBrowser.maybeCompleteAuthSession();
+
+type OAuthProvider = 'google' | 'apple';
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -31,73 +33,110 @@ type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
   signInError: string | null;
-  signIn: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // A path is required: Auth0's dashboard rejects bare-scheme callback URLs
-  // ("ryddigkollektivnative://") as format-invalid, so the standalone redirect
-  // must be "ryddigkollektivnative://callback" to be whitelistable at all.
-  const redirectUri = useMemo(
+  // A path is required: matches the callback URL registered with each OAuth provider
+  // (and previously with Auth0) - "ryddigkollektivnative://callback".
+  const redirectTo = useMemo(
     () => AuthSession.makeRedirectUri({ scheme: 'ryddigkollektivnative', path: 'callback' }),
     []
   );
-  const discovery = AuthSession.useAutoDiscovery(`https://${env.auth0Domain}`);
 
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: env.auth0ClientId,
-      scopes: ['openid', 'profile', 'email', 'offline_access'],
-      redirectUri,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: true,
-      extraParams: env.auth0Audience ? { audience: env.auth0Audience } : undefined,
-    },
-    discovery
-  );
-
-  const [tokens, setTokensState] = useState<StoredTokens | null>(() => getTokensSnapshot());
+  const [session, setSession] = useState<Session | null>(() => getSessionSnapshot());
   const [hasLoaded, setHasLoaded] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
 
-  useEffect(() => subscribe(setTokensState), []);
+  useEffect(() => subscribe(setSession), []);
 
   useEffect(() => {
-    loadPersistedTokens().finally(() => setHasLoaded(true));
+    loadPersistedSession().finally(() => setHasLoaded(true));
   }, []);
 
-  useEffect(() => {
-    if (!response || response.type !== 'success' || !request?.codeVerifier) return;
+  /** Applies the access/refresh tokens Supabase appended to the OAuth redirect URL. */
+  const createSessionFromUrl = useCallback(async (url: string) => {
+    const { params, errorCode } = QueryParams.getQueryParams(url);
+    if (errorCode) throw new Error(errorCode);
+    const { access_token, refresh_token } = params;
+    if (!access_token || !refresh_token) return;
 
-    setSignInError(null);
-    exchangeCode(response.params.code, redirectUri, request.codeVerifier).catch((err) => {
-      console.warn('Auth0 sign-in failed', err);
-      setSignInError(err instanceof Error ? err.message : 'Sign-in failed');
-    });
-  }, [response, request, redirectUri]);
+    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+    if (error) throw error;
+  }, []);
 
-  const signIn = useCallback(async () => {
+  const signInWithOAuth = useCallback(
+    async (provider: OAuthProvider) => {
+      setSignInError(null);
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo, skipBrowserRedirect: true },
+        });
+        if (error || !data.url) throw error ?? new Error('Kunne ikke starte innlogging');
+
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success') {
+          await createSessionFromUrl(result.url);
+        }
+      } catch (err) {
+        console.warn(`${provider} sign-in failed`, err);
+        setSignInError(err instanceof Error ? err.message : 'Innlogging feilet');
+      }
+    },
+    [redirectTo, createSessionFromUrl]
+  );
+
+  const signInWithGoogle = useCallback(() => signInWithOAuth('google'), [signInWithOAuth]);
+  const signInWithApple = useCallback(() => signInWithOAuth('apple'), [signInWithOAuth]);
+
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
     setSignInError(null);
-    await promptAsync();
-  }, [promptAsync]);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setSignInError(error.message);
+      throw error;
+    }
+  }, []);
+
+  const signUpWithPassword = useCallback(async (email: string, password: string) => {
+    setSignInError(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setSignInError(error.message);
+      throw error;
+    }
+  }, []);
 
   const signOut = useCallback(async () => {
-    // Must happen before clearSession() - clearing the token needs a still-valid
-    // session to authenticate the request. Best-effort: sign-out proceeds either way.
+    // Must happen before clearSession() - clearing the session needs a still-valid
+    // one to authenticate the request. Best-effort: sign-out proceeds either way.
     await clearPushToken();
     await clearSession();
   }, []);
 
-  const user = useMemo(() => getUser(tokens), [tokens]);
+  const user = useMemo(() => getUser(session), [session]);
 
-  const status: AuthStatus = !hasLoaded ? 'loading' : tokens ? 'signedIn' : 'signedOut';
+  const status: AuthStatus = !hasLoaded ? 'loading' : session ? 'signedIn' : 'signedOut';
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, signInError, signIn, signOut }),
-    [status, user, signInError, signIn, signOut]
+    () => ({
+      status,
+      user,
+      signInError,
+      signInWithGoogle,
+      signInWithApple,
+      signInWithPassword,
+      signUpWithPassword,
+      signOut,
+    }),
+    [status, user, signInError, signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

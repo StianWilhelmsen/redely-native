@@ -14,8 +14,8 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-0w3frm5m8ingvvge.us.auth0.com",
-        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oWp48x7bCGAwC8goELkny56w0lZfXig7",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://syuhjdkoyqpuvgareiye.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5dWhqZGtveXFwdXZnYXJlaXllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwNTkzODksImV4cCI6MjEwMDYzNTM4OX0.4SXTiqBpOWV5zea_HbcVx81hUt7t9d3_k4WPlJjfvZ8",
         "EXPO_PUBLIC_API_URL": "https://ryddig-kollektiv-backend.onrender.com"
       }
     }

@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
@@ -28,10 +29,13 @@ export default function OnboardingScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which way the next step should slide in from, so going back reads as going back.
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   const goBack = () => {
     setError(null);
     if (step === 0) return;
+    setDirection(-1);
     setStep((s) => s - 1);
   };
 
@@ -76,6 +80,7 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     setError(null);
+    setDirection(1);
     if (step === 0) {
       if (!firstName.trim()) {
         setError('Skriv inn fornavnet ditt.');
@@ -101,6 +106,7 @@ export default function OnboardingScreen() {
 
   const handleSkipPicture = () => {
     setImage(null);
+    setDirection(1);
     setStep(2);
   };
 
@@ -127,6 +133,12 @@ export default function OnboardingScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets>
+        {/* Remounting on `key={step}` is what replays the entrance animation - without it
+            React would reuse the same node and the steps would swap with no transition. */}
+        <Animated.View
+          key={step}
+          entering={(direction === 1 ? FadeInRight : FadeInLeft).duration(260)}
+          style={styles.stepBody}>
         {step === 0 && (
           <>
             <ThemedText type="display" style={styles.title}>
@@ -232,6 +244,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </>
         )}
+        </Animated.View>
 
         {error && (
           <ThemedText type="small" themeColor="danger" style={styles.error}>
@@ -286,6 +299,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.four,
+    gap: Spacing.four,
+  },
+  // The step wrapper became the single child of `content`, so it has to carry the spacing
+  // that used to come from `content`'s gap between the step's own elements.
+  stepBody: {
     gap: Spacing.four,
   },
   title: {

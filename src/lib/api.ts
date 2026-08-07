@@ -163,7 +163,11 @@ export const api = {
   markSharePaid: (shareId: number) =>
     request<ExpenseShare>(`/api/expenses/shares/${shareId}/paid`, { method: 'POST' }),
 
-  chatMessages: () => request<ChatMessage[]>('/api/chat/messages'),
+  deleteAccount: () => request<void>('/api/me', { method: 'DELETE' }),
+
+  /** Omit `before` for the newest page; pass the oldest id you hold to load older history. */
+  chatMessages: (before?: number) =>
+    request<ChatMessage[]>(`/api/chat/messages${before != null ? `?before=${before}` : ''}`),
   sendChatMessage: (content: string, image?: { uri: string; name: string; type: string }) => {
     const form = new FormData();
     if (content) form.append('content', content);

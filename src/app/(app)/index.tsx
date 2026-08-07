@@ -16,6 +16,7 @@ import { GetStartedSection } from '@/components/home/get-started-section';
 import { OnboardingSection } from '@/components/home/onboarding-section';
 import { QuickActionsSection } from '@/components/home/quick-actions-section';
 import { StatRow } from '@/components/home/stat-row';
+import { WeeklyGoalSection } from '@/components/home/weekly-goal-section';
 import { PillSegmentedControl } from '@/components/pill-segmented-control';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { buildTaskGroups, TaskGroups, type TaskViewMode } from '@/components/tasks/task-groups';
@@ -253,6 +254,8 @@ export default function HomeScreen() {
                 },
               ]}
             />
+
+            {weeklyStats && <WeeklyGoalSection stats={weeklyStats} />}
 
             <TaskGroups
               tasks={allTasks}

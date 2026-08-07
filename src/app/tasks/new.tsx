@@ -20,7 +20,14 @@ const REPEAT_OPTIONS: { key: RepeatFrequency; label: string }[] = [
   { key: 'DAILY', label: 'Daglig' },
 ];
 
-const POINT_OPTIONS = [1, 2, 3, 5, 10];
+// Deliberately narrow (and labelled by effort rather than raw numbers): rotation already
+// evens out who takes the heavy chores, so a wider spread would mostly invite inflating
+// your own tasks. Mirrors TaskService.MIN/MAX_TASK_POINTS on the backend.
+const POINT_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: 'Liten' },
+  { value: 2, label: 'Vanlig' },
+  { value: 3, label: 'Stor' },
+];
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -256,13 +263,16 @@ export default function TaskFormScreen() {
         </View>
 
         <View style={styles.field}>
-          <FieldLabel>Poeng</FieldLabel>
+          <FieldLabel>Hvor stor jobb?</FieldLabel>
           <View style={styles.pointsRow}>
-            {POINT_OPTIONS.map((value) => {
+            {POINT_OPTIONS.map(({ value, label }) => {
               const active = value === points;
               return (
                 <Pressable
                   key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${label}, ${value} poeng`}
                   onPress={() => setPoints(value)}
                   style={[
                     styles.pointChip,
@@ -270,7 +280,13 @@ export default function TaskFormScreen() {
                     active && { backgroundColor: theme.brand },
                   ]}>
                   <ThemedText type="small" style={active ? { color: theme.onBrand } : undefined}>
-                    {value}
+                    {label}
+                  </ThemedText>
+                  <ThemedText
+                    type="small"
+                    themeColor={active ? undefined : 'textSecondary'}
+                    style={[styles.pointChipValue, active ? { color: theme.onBrand } : undefined]}>
+                    {value} p
                   </ThemedText>
                 </Pressable>
               );
@@ -397,12 +413,17 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   pointChip: {
-    width: 44,
-    height: 40,
+    flex: 1,
+    height: 52,
     borderRadius: Radii.chip,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 1,
+  },
+  pointChipValue: {
+    fontSize: 11,
+    opacity: 0.8,
   },
   dateRow: {
     flexDirection: 'row',

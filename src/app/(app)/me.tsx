@@ -10,15 +10,18 @@ import { AvatarBadge } from '@/components/avatar-badge';
 import { BarChart } from '@/components/bar-chart';
 import { DonutProgress } from '@/components/donut-progress';
 import { ErrorState } from '@/components/error-state';
+import { LevelCard } from '@/components/me/level-card';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
+import { TaskCard } from '@/components/tasks/task-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
-import { formatShortDate, parseDueDateLocal } from '@/lib/date-utils';
+import { addDays, formatShortDate, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
+import type { Task } from '@/types/api';
 
 function formatKr(amount: number): string {
   return `${Math.round(amount)} kr`;
@@ -35,8 +38,32 @@ export default function MeScreen() {
     me?.collective ? 'my-stats' : null,
     api.myStats
   );
-  const { data: tasks } = useSWR(me?.collective ? 'tasks' : null, api.tasks);
+  const { data: tasks, mutate: mutateTasks } = useSWR(me?.collective ? 'tasks' : null, api.tasks);
   const { data: expenses } = useSWR(me?.collective ? 'expenses' : null, api.expenses);
+
+  const handleToggleTask = async (task: Task) => {
+    const next = !task.completed;
+    try {
+      await mutateTasks(
+        async (current) => {
+          const updated = await api.setTaskCompleted(task.id, next);
+          return (current ?? []).map((t) => (t.id === task.id ? updated : t));
+        },
+        {
+          optimisticData: (current) =>
+            (current ?? []).map((t) => (t.id === task.id ? { ...t, completed: next } : t)),
+          rollbackOnError: true,
+          revalidate: false,
+        }
+      );
+      // Completing a task moves points, streaks and the activity feed - refresh what's on screen.
+      mutateMyStats();
+      globalMutate('activity');
+      globalMutate('weekly-stats');
+    } catch {
+      // rollbackOnError already restored the previous state.
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -106,18 +133,23 @@ export default function MeScreen() {
     .filter((s) => s.user.id === me.id && !s.paid)
     .reduce((sum, s) => sum + s.amountOwed, 0);
 
+  // Actually bounded to the current Mon-Sun week. Previously this only checked "has a due
+  // date at all", so the six slots filled up with the oldest overdue tasks and this week's
+  // work never appeared - despite the heading promising exactly that.
+  const weekStart = startOfWeekMonday(new Date());
+  const weekEnd = addDays(weekStart, 6);
   const myWeekTasks = (tasks ?? [])
     .filter((t) => t.assignedTo?.id === me.id)
     .filter((t) => {
       const d = parseDueDateLocal(t.dueDate);
-      return !!d;
+      return !!d && d >= weekStart && d <= weekEnd;
     })
     .sort((a, b) => {
-      const da = parseDueDateLocal(a.dueDate)!;
-      const db = parseDueDateLocal(b.dueDate)!;
-      return da.getTime() - db.getTime();
-    })
-    .slice(0, 6);
+      // Unfinished work first, then by date - a completed task shouldn't push a pending one
+      // out of view.
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return parseDueDateLocal(a.dueDate)!.getTime() - parseDueDateLocal(b.dueDate)!.getTime();
+    });
 
   const settingsButton = (
     <Pressable
@@ -160,11 +192,19 @@ export default function MeScreen() {
           </ThemedText>
         )}
         {totalOwed > 0 && (
-          <View style={[styles.owedPill, { backgroundColor: `${theme.danger}1C` }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Du skylder ${formatKr(totalOwed)}. Gå til regninger.`}
+            onPress={() => router.push('/shopping')}
+            style={({ pressed }) => [
+              styles.owedPill,
+              { backgroundColor: `${theme.danger}1C` },
+              pressed && styles.owedPillPressed,
+            ]}>
             <ThemedText type="small" style={{ color: theme.danger }}>
-              Du skylder {formatKr(totalOwed)}
+              Du skylder {formatKr(totalOwed)} →
             </ThemedText>
-          </View>
+          </Pressable>
         )}
       </View>
 
@@ -173,6 +213,15 @@ export default function MeScreen() {
       ) : (
         myStats && (
         <>
+          <LevelCard
+            level={myStats.level}
+            lifetimePoints={myStats.lifetimePoints}
+            weekPoints={myStats.weekPoints}
+            pointsToNextLevel={myStats.pointsToNextLevel}
+            levelProgressPercent={myStats.levelProgressPercent}
+            badges={myStats.badges}
+          />
+
           <View style={[styles.statsCard, { backgroundColor: theme.backgroundElement }]}>
             <DonutProgress percent={myStats.completionPercentThisMonth} />
             <View style={styles.statsCardInfo}>
@@ -196,28 +245,31 @@ export default function MeScreen() {
         )
       )}
 
-      {myWeekTasks.length > 0 && (
-        <Section title="Mine oppgaver denne uken">
+      <Section title="Mine oppgaver denne uken">
+        {myWeekTasks.length === 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Du har ingen oppgaver denne uken. 🎉
+          </ThemedText>
+        ) : (
           <View style={styles.taskList}>
-            {myWeekTasks.map((task) => {
+            {myWeekTasks.map((task, index) => {
               const d = parseDueDateLocal(task.dueDate);
               return (
-                <View key={task.id} style={styles.taskRow}>
-                  <ThemedText
-                    numberOfLines={1}
-                    themeColor={task.completed ? 'textSecondary' : 'text'}
-                    style={[styles.taskTitle, task.completed && styles.strikethrough]}>
-                    {task.title}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {d ? formatShortDate(d) : ''}
-                  </ThemedText>
-                </View>
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  subtitle={d ? formatShortDate(d) : undefined}
+                  onToggle={handleToggleTask}
+                  onActions={(t) =>
+                    router.push({ pathname: '/tasks/new', params: { id: String(t.id) } })
+                  }
+                />
               );
             })}
           </View>
-        </Section>
-      )}
+        )}
+      </Section>
     </ScreenScroll>
   );
 }
@@ -246,6 +298,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
+  },
+  owedPillPressed: {
+    opacity: 0.75,
   },
   settingsButton: {
     width: 40,
@@ -277,17 +332,5 @@ const styles = StyleSheet.create({
   },
   taskList: {
     gap: Spacing.two + 2,
-  },
-  taskRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  taskTitle: {
-    flex: 1,
-  },
-  strikethrough: {
-    textDecorationLine: 'line-through',
   },
 });

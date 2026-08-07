@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PaletteSwitcher } from '@/components/palette-switcher';
@@ -43,6 +43,48 @@ export default function SettingsScreen() {
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * Two-step confirmation before a permanent, irreversible delete - the second prompt
+   * spells out what actually disappears rather than just asking "are you sure?" again.
+   */
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Slette kontoen din?',
+      'Profilen, meldingene og utgiftene dine blir borte for godt. Dette kan ikke angres.',
+      [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Slett',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Helt sikker?', 'Siste sjanse — kontoen slettes permanent.', [
+              { text: 'Avbryt', style: 'cancel' },
+              { text: 'Slett kontoen', style: 'destructive', onPress: confirmDeleteAccount },
+            ]);
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await api.deleteAccount();
+      // The account is gone, so the session is meaningless - signing out drops the local
+      // tokens and sends the navigator back to the sign-in screen.
+      await signOut();
+    } catch (err) {
+      Alert.alert(
+        'Kunne ikke slette kontoen',
+        err instanceof Error ? err.message : 'Prøv igjen, eller kontakt oss om det vedvarer.'
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const startEditingName = () => {
     setName(me?.name ?? '');
@@ -137,6 +179,19 @@ export default function SettingsScreen() {
         </Section>
 
         <PrimaryButton label="Logg ut" variant="danger" onPress={signOut} />
+
+        <Section title="Farlig sone">
+          <ThemedText type="small" themeColor="textSecondary" style={styles.deleteBlurb}>
+            Sletting fjerner profilen din, meldingene dine og utgiftene du har lagt ut. Er du
+            alene i kollektivet, slettes kollektivet også. Dette kan ikke angres.
+          </ThemedText>
+          <PrimaryButton
+            label={deleting ? 'Sletter…' : 'Slett konto'}
+            variant="danger"
+            loading={deleting}
+            onPress={handleDeleteAccount}
+          />
+        </Section>
       </ScrollView>
     </View>
   );
@@ -161,6 +216,10 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.four,
     gap: Spacing.five,
+  },
+  deleteBlurb: {
+    marginBottom: Spacing.two,
+    lineHeight: 19,
   },
   card: {
     borderRadius: Radii.card,

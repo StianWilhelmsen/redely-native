@@ -11,11 +11,20 @@ function useMarkerValue(marker: { getValue: () => number; subscribe: (l: () => v
   return marker.getValue();
 }
 
+/**
+ * How often the tab badge re-checks for unread messages. This hook is mounted by the tab
+ * bar on *every* screen, so a chat-like interval here would poll the API ~24x/minute for
+ * the whole session - burning battery and Render hours to watch a screen you're not on.
+ * Push notifications carry the authoritative unread count (see PushNotificationService),
+ * so this only needs to be a slow safety net. The chat screen itself polls fast.
+ */
+const BADGE_POLL_MS = 30_000;
+
 /** Unread chat messages: anything from someone else newer than the last message you saw. */
 export function useUnreadChat() {
   const { data: me } = useMe();
-  const { data: messages } = useSWR(me?.collective ? 'chat-messages' : null, api.chatMessages, {
-    refreshInterval: 2500,
+  const { data: messages } = useSWR(me?.collective ? 'chat-messages' : null, () => api.chatMessages(), {
+    refreshInterval: BADGE_POLL_MS,
   });
   const lastReadId = useMarkerValue(chatReadMarker);
 

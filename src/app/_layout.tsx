@@ -8,6 +8,7 @@ import {
 } from '@expo-google-fonts/poppins';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect, useState, type ReactNode } from 'react';
@@ -23,6 +24,17 @@ import { api } from '@/lib/api';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
 SplashScreen.preventAutoHideAsync();
+
+// Without a handler, a push arriving while the app is open is swallowed entirely -
+// no banner, no sound, and (crucially) the payload's badge count is never applied.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 /**
  * If anything throws during render, show the error on screen instead of silently

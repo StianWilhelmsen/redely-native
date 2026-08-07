@@ -4,6 +4,7 @@ import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -25,6 +26,7 @@ import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
+import { localDateKey, relativeDayLabel } from '@/lib/date-utils';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { useUnreadChat } from '@/hooks/use-unread';
@@ -39,20 +41,57 @@ function formatTime(iso: string): string {
 
 type PickedImage = { uri: string; name: string; type: string };
 
+/**
+ * Wraps a message row in its own private fade/slide-in, played once on mount.
+ * Each row gets its own Animated.Value (never shared across rows) so re-renders
+ * elsewhere in the list can't retarget an in-flight animation onto the wrong
+ * message - which is what caused the previous "last message vanishes" bug when a
+ * single shared value got reassigned to whichever row was newest.
+ */
+function AnimatedMessageRow({ animate, children }: { animate: boolean; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  const translateY = useRef(new Animated.Value(animate ? 8 : 0)).current;
+
+  useEffect(() => {
+    if (!animate) return;
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start();
+    // Intentionally runs once on mount only - this row's animation is a one-time
+    // entrance, not something that should replay on unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>;
+}
+
 export default function ChatScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { data: me } = useMe();
+
+  const [isFocused, setIsFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
+  // Only poll at conversation speed while you're actually looking at the conversation.
+  // The tab bar keeps a much slower badge poll running elsewhere (see use-unread.ts).
+  const chatPollInterval = isFocused ? POLL_INTERVAL_MS : 0;
   const {
     data: messages,
     error,
     mutate,
-  } = useSWR(me?.collective ? 'chat-messages' : null, api.chatMessages, {
-    refreshInterval: POLL_INTERVAL_MS,
+  } = useSWR(me?.collective ? 'chat-messages' : null, () => api.chatMessages(), {
+    refreshInterval: chatPollInterval,
   });
   const { data: members } = useSWR(me?.collective ? 'members' : null, api.members);
   const { data: readStates } = useSWR(me?.collective ? 'chat-read-states' : null, api.chatReadStates, {
-    refreshInterval: POLL_INTERVAL_MS,
+    refreshInterval: chatPollInterval,
   });
 
   const [text, setText] = useState('');
@@ -62,14 +101,43 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const notifyPlayer = useAudioPlayer(require('@/assets/notifysfx.mp3'));
 
+  // History loaded by scrolling up, kept separate from the SWR-owned newest page so
+  // polling can keep replacing that page without wiping what we've paged in.
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [reachedStart, setReachedStart] = useState(false);
+
   const { markRead } = useUnreadChat();
-  const [isFocused, setIsFocused] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      setIsFocused(true);
-      return () => setIsFocused(false);
-    }, [])
+
+  const allMessages = useMemo(
+    () => (messages ? [...olderMessages, ...messages] : olderMessages),
+    [olderMessages, messages]
   );
+
+  // Set just before prepending a page, so the auto-scroll-to-bottom handler knows this
+  // particular content-size change came from loading history rather than a new message.
+  const isPaginatingRef = useRef(false);
+
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder || reachedStart) return;
+    const oldest = allMessages[0];
+    if (!oldest) return;
+
+    setLoadingOlder(true);
+    try {
+      const page = await api.chatMessages(oldest.id);
+      if (page.length === 0) {
+        setReachedStart(true);
+      } else {
+        isPaginatingRef.current = true;
+        setOlderMessages((prev) => [...page, ...prev]);
+      }
+    } catch {
+      // Leave the flag unset so scrolling up again retries.
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, reachedStart, allMessages]);
   // Marks read on focus, and again on every new message that arrives while the
   // screen stays open - otherwise the tab dot would linger until you leave and
   // come back even though you're already looking at the new message.
@@ -84,6 +152,14 @@ export default function ChatScreen() {
     if (!isFocused || !messages || messages.length === 0) return;
     api.markChatRead(messages[messages.length - 1].id).catch(() => {});
   }, [isFocused, messages?.length, messages]);
+
+  // Reading the chat clears what's piled up in Notification Center too. Without this
+  // the banners (and the badge the OS applied from their payloads) outlive the unread
+  // state they represent - which is the "badge won't go away" symptom.
+  useEffect(() => {
+    if (!isFocused) return;
+    Notifications.dismissAllNotificationsAsync().catch(() => {});
+  }, [isFocused, messages?.length]);
 
   // Plays a soft notification sound when a housemate's message arrives while you're
   // already looking at the chat (skipped on first load, and for your own messages).
@@ -100,24 +176,21 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // Subtle pop-in for whichever message just landed at the bottom of the list.
-  const newMessageAnim = useRef(new Animated.Value(1)).current;
-  const prevCountRef = useRef(0);
-  useEffect(() => {
-    if (messages && messages.length > prevCountRef.current && prevCountRef.current > 0) {
-      newMessageAnim.setValue(0);
-      Animated.timing(newMessageAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    }
-    prevCountRef.current = messages?.length ?? 0;
-  }, [messages?.length, newMessageAnim]);
+  // Marks the id-watermark of "already loaded when the screen opened" the first time
+  // messages arrive, so only genuinely new messages (sent or received afterwards) pop
+  // in - not the whole history on first open. Set once and never touched again.
+  const initialMaxIdRef = useRef<number | null>(null);
+  if (initialMaxIdRef.current === null && messages) {
+    initialMaxIdRef.current = messages.length > 0 ? messages[messages.length - 1].id : 0;
+  }
 
   // Resolves each housemate's read cursor to an avatar shown under the newest
   // message they've actually seen - Messenger-style "seen by" receipts. Only
   // resolves against messages currently loaded (last 50), and never for yourself.
   const readReceiptsByMessageId = useMemo(() => {
     const map = new Map<number, Member[]>();
-    if (!messages || !readStates || !members) return map;
-    const loadedIds = new Set(messages.map((m) => m.id));
+    if (allMessages.length === 0 || !readStates || !members) return map;
+    const loadedIds = new Set(allMessages.map((m) => m.id));
     for (const state of readStates) {
       if (state.userId === me?.id) continue;
       if (!loadedIds.has(state.lastReadMessageId)) continue;
@@ -128,7 +201,7 @@ export default function ChatScreen() {
       map.set(state.lastReadMessageId, existing);
     }
     return map;
-  }, [messages, readStates, members, me?.id]);
+  }, [allMessages, readStates, members, me?.id]);
 
   useEffect(() => {
     if (messages && messages.length > 0) {
@@ -147,7 +220,24 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const handlePickImage = async () => {
+  const applyPickedAsset = (asset: ImagePicker.ImagePickerAsset) => {
+    const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';
+    const type = asset.mimeType ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
+    setImage({ uri: asset.uri, name: asset.fileName ?? `chat.${ext}`, type });
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Ingen tilgang', 'Du må gi tilgang til kameraet for å ta et bilde.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (result.canceled || !result.assets?.[0]) return;
+    applyPickedAsset(result.assets[0]);
+  };
+
+  const pickFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Ingen tilgang', 'Du må gi tilgang til bilder for å sende et bilde.');
@@ -155,11 +245,17 @@ export default function ChatScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.[0]) return;
+    applyPickedAsset(result.assets[0]);
+  };
 
-    const asset = result.assets[0];
-    const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';
-    const type = asset.mimeType ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
-    setImage({ uri: asset.uri, name: asset.fileName ?? `chat.${ext}`, type });
+  // Camera first: in a shared-flat chat the photo is usually of something happening right
+  // now ("look at the kitchen"), so making that the default saves a trip via the album.
+  const handlePickImage = () => {
+    Alert.alert('Legg ved bilde', undefined, [
+      { text: 'Ta bilde', onPress: takePhoto },
+      { text: 'Velg fra album', onPress: pickFromLibrary },
+      { text: 'Avbryt', style: 'cancel' },
+    ]);
   };
 
   const handleSend = async () => {
@@ -207,7 +303,7 @@ export default function ChatScreen() {
         <View style={styles.loading}>
           <RefreshSpinner active />
         </View>
-      ) : messages.length === 0 ? (
+      ) : allMessages.length === 0 ? (
         <View style={styles.empty}>
           <ThemedText style={styles.emptyEmoji}>💬</ThemedText>
           <ThemedText type="heading">Ingen meldinger ennå</ThemedText>
@@ -218,33 +314,58 @@ export default function ChatScreen() {
       ) : (
         <FlatList
           ref={listRef}
-          data={messages}
+          data={allMessages}
           keyExtractor={(m) => String(m.id)}
           contentContainerStyle={styles.list}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          // Keeps the message you're looking at anchored when a page is prepended above,
+          // instead of the content jumping under your thumb.
+          maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+          onScroll={(e) => {
+            if (e.nativeEvent.contentOffset.y < 80) loadOlder();
+          }}
+          scrollEventThrottle={16}
+          ListHeaderComponent={
+            loadingOlder ? (
+              <View style={styles.loadingOlder}>
+                <RefreshSpinner active />
+              </View>
+            ) : null
+          }
+          onContentSizeChange={() => {
+            // Growing upwards (history) must not yank the view to the bottom - only a new
+            // message at the end should.
+            if (isPaginatingRef.current) {
+              isPaginatingRef.current = false;
+              return;
+            }
+            listRef.current?.scrollToEnd({ animated: false });
+          }}
           renderItem={({ item, index }) => {
             const mine = item.senderId === me?.id;
-            const prev = messages[index - 1];
-            const showSender = !mine && (!prev || prev.senderId !== item.senderId);
-            const isLast = index === messages.length - 1;
+            const prev = allMessages[index - 1];
+            const next = allMessages[index + 1];
+            const dayKey = localDateKey(new Date(item.createdAt));
+            const showDateSeparator = !prev || localDateKey(new Date(prev.createdAt)) !== dayKey;
+            // A new day restarts the grouping, so the sender is re-labelled under it.
+            const showSender =
+              !mine && (showDateSeparator || !prev || prev.senderId !== item.senderId);
+            // Messenger only timestamps the last message of a run from one person,
+            // instead of repeating the clock under every single bubble.
+            const showTime =
+              !next ||
+              next.senderId !== item.senderId ||
+              localDateKey(new Date(next.createdAt)) !== dayKey;
             const readers = readReceiptsByMessageId.get(item.id);
+            const isNew = initialMaxIdRef.current !== null && item.id > initialMaxIdRef.current;
             return (
-              <Animated.View
-                style={
-                  isLast
-                    ? {
-                        opacity: newMessageAnim,
-                        transform: [
-                          {
-                            translateY: newMessageAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [8, 0],
-                            }),
-                          },
-                        ],
-                      }
-                    : undefined
-                }>
+              <AnimatedMessageRow animate={isNew}>
+                {showDateSeparator && (
+                  <View style={styles.dateSeparator}>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.dateSeparatorText}>
+                      {relativeDayLabel(item.createdAt)}
+                    </ThemedText>
+                  </View>
+                )}
                 <View style={[styles.messageRow, mine && styles.messageRowMine]}>
                   {!mine && (
                     <View style={styles.avatarSlot}>
@@ -284,9 +405,11 @@ export default function ChatScreen() {
                         </ThemedText>
                       )}
                     </View>
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.timeText}>
-                      {formatTime(item.createdAt)}
-                    </ThemedText>
+                    {showTime && (
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.timeText}>
+                        {formatTime(item.createdAt)}
+                      </ThemedText>
+                    )}
                   </View>
                 </View>
                 {readers && readers.length > 0 && (
@@ -304,7 +427,7 @@ export default function ChatScreen() {
                     ))}
                   </View>
                 )}
-              </Animated.View>
+              </AnimatedMessageRow>
             );
           }}
         />
@@ -425,6 +548,18 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 10,
     marginHorizontal: Spacing.two,
+  },
+  loadingOlder: {
+    alignItems: 'center',
+    paddingBottom: Spacing.three,
+  },
+  dateSeparator: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+  },
+  dateSeparatorText: {
+    fontSize: 11,
+    textTransform: 'capitalize',
   },
   readReceiptRow: {
     flexDirection: 'row',

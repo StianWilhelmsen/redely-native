@@ -184,6 +184,17 @@ export type MyStats = {
   completedThisMonth: number;
   streakDays: number;
   last7DaysActivity: DayCount[];
+  weekPoints: number;
+  lifetimePoints: number;
+  level: number;
+  pointsToNextLevel: number;
+  /** How far into the current level, 0-100 — computed server-side so the level formula
+   *  lives in exactly one place. */
+  levelProgressPercent: number;
+  badges: Badge[];
+  /** The whole collective's points this week, and the shared target they fill. */
+  collectiveWeekPoints: number;
+  goalPoints: number;
 };
 
 export type ChatMessage = {

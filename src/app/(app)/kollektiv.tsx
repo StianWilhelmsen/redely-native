@@ -108,6 +108,25 @@ export default function KollektivScreen() {
         <RefreshSpinner active />
       ) : (
         <>
+          <Section title="Ukesoppsummering">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Se ukesoppsummeringen så langt"
+              onPress={() => router.push('/weekly-summary')}
+              style={({ pressed }) => [
+                styles.summaryLink,
+                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.75 : 1 },
+              ]}>
+              <View style={styles.summaryLinkText}>
+                <ThemedText type="smallBold">Se uken så langt</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Poeng, oppgaver og MVP
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+            </Pressable>
+          </Section>
+
           <View style={[styles.streakCard, { backgroundColor: theme.brand }]}>
             <ThemedText type="eyebrow" themeColor="onBrand" style={styles.streakLabel}>
               Kollektivets streak
@@ -298,6 +317,19 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: Radii.card,
     paddingHorizontal: Spacing.three,
+  },
+  summaryLink: {
+    minHeight: 64,
+    borderRadius: Radii.card,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  summaryLinkText: {
+    flex: 1,
   },
   weekNav: {
     flexDirection: 'row',

@@ -2,6 +2,7 @@ import { getValidIdToken } from '@/lib/auth-store';
 import { env } from '@/lib/env';
 import type {
   ActivityEvent,
+  ChatConversation,
   ChatMessage,
   ChatReadState,
   Collective,
@@ -132,6 +133,8 @@ export const api = {
 
   activity: () => request<ActivityEvent[]>('/api/activity'),
   weeklyStats: () => request<WeeklyStats>('/api/stats/weekly'),
+  weeklyStatsForWeek: (weekStart: string) =>
+    request<WeeklyStats>(`/api/stats/weekly?weekStart=${encodeURIComponent(weekStart)}`),
   collectiveStats: () => request<CollectiveStats>('/api/stats/collective'),
   myStats: () => request<MyStats>('/api/stats/me'),
 
@@ -165,16 +168,33 @@ export const api = {
 
   deleteAccount: () => request<void>('/api/me', { method: 'DELETE' }),
 
-  /** Omit `before` for the newest page; pass the oldest id you hold to load older history. */
-  chatMessages: (before?: number) =>
-    request<ChatMessage[]>(`/api/chat/messages${before != null ? `?before=${before}` : ''}`),
-  sendChatMessage: (content: string, image?: { uri: string; name: string; type: string }) => {
+  chatConversations: () => request<ChatConversation[]>('/api/chat/conversations'),
+  /** Omit peerId for the shared chat; pass before to load older history. */
+  chatMessages: (peerId?: number, before?: number) => {
+    const params = new URLSearchParams();
+    if (peerId != null) params.set('peerId', String(peerId));
+    if (before != null) params.set('before', String(before));
+    const query = params.toString();
+    return request<ChatMessage[]>(`/api/chat/messages${query ? `?${query}` : ''}`);
+  },
+  sendChatMessage: (
+    content: string,
+    peerId?: number,
+    image?: { uri: string; name: string; type: string }
+  ) => {
     const form = new FormData();
     if (content) form.append('content', content);
+    if (peerId != null) form.append('peerId', String(peerId));
     if (image) form.append('image', image as unknown as Blob);
     return request<ChatMessage>('/api/chat/messages', { method: 'POST', body: form });
   },
-  chatReadStates: () => request<ChatReadState[]>('/api/chat/read-states'),
-  markChatRead: (messageId: number) =>
-    request<void>('/api/chat/read', { method: 'PUT', body: JSON.stringify({ messageId }) }),
+  chatReadStates: (peerId?: number) =>
+    request<ChatReadState[]>(
+      `/api/chat/read-states${peerId != null ? `?peerId=${peerId}` : ''}`
+    ),
+  markChatRead: (messageId: number, peerId?: number) =>
+    request<void>('/api/chat/read', {
+      method: 'PUT',
+      body: JSON.stringify({ messageId, peerId: peerId ?? null }),
+    }),
 };

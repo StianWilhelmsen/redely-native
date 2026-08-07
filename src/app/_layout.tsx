@@ -9,18 +9,20 @@ import {
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
 import useSWR from 'swr';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { OfflineBanner } from '@/components/offline-banner';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ThemedView } from '@/components/themed-view';
+import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
 SplashScreen.preventAutoHideAsync();
@@ -91,6 +93,49 @@ function NavigationTheme({ children }: { children: ReactNode }) {
 function RootNavigator() {
   const { status } = useAuth();
   const { data: me } = useSWR(status === 'signedIn' ? 'me' : null, api.me);
+  const meId = me?.id;
+
+  useEffect(() => {
+    if (status !== 'signedIn' || !meId) return;
+
+    const syncToken = () => {
+      syncPushTokenIfGranted().catch((error) => {
+        console.warn('Could not sync push token', error);
+      });
+    };
+
+    syncToken();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') syncToken();
+    });
+    return () => subscription.remove();
+  }, [status, meId]);
+
+  useEffect(() => {
+    if (status !== 'signedIn' || !meId) return;
+
+    const redirect = (notification: Notifications.Notification): boolean => {
+      const url = notification.request.content.data?.url;
+      if (typeof url !== 'string' || !url.startsWith('/weekly-summary')) return false;
+
+      const weekStart = /[?&]weekStart=(\d{4}-\d{2}-\d{2})/.exec(url)?.[1];
+      router.push({
+        pathname: '/weekly-summary',
+        params: weekStart ? { weekStart } : {},
+      });
+      return true;
+    };
+
+    const lastResponse = Notifications.getLastNotificationResponse();
+    if (lastResponse?.notification && redirect(lastResponse.notification)) {
+      Notifications.clearLastNotificationResponse();
+    }
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      redirect(response.notification);
+    });
+    return () => subscription.remove();
+  }, [status, meId]);
 
   const stillResolvingProfile = status === 'signedIn' && !me;
 
@@ -110,25 +155,29 @@ function RootNavigator() {
   const needsOnboarding = status === 'signedIn' && !!me && !me.onboarded;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="settings" options={{ presentation: 'card' }} />
-        <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
-        <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
-        <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
-      </Stack.Protected>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="settings" options={{ presentation: 'card' }} />
+          <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
+          <Stack.Screen name="weekly-summary" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
 
-      <Stack.Protected guard={needsOnboarding}>
-        <Stack.Screen name="onboarding" />
-      </Stack.Protected>
+        <Stack.Protected guard={needsOnboarding}>
+          <Stack.Screen name="onboarding" />
+        </Stack.Protected>
 
-      <Stack.Protected guard={status === 'signedOut'}>
-        <Stack.Screen name="sign-in" />
-      </Stack.Protected>
-    </Stack>
+        <Stack.Protected guard={status === 'signedOut'}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
+      </Stack>
+      {status === 'signedIn' && !needsOnboarding && meId ? <WeeklySummaryGate userId={meId} /> : null}
+    </>
   );
 }
 

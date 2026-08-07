@@ -10,7 +10,11 @@ import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError } from '@/lib/api';
-import { getPermissionStatus, requestAndRegisterPushToken } from '@/lib/push-notifications';
+import {
+  getPermissionStatus,
+  isNotificationPermissionGranted,
+  requestAndRegisterPushToken,
+} from '@/lib/push-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function Row({
@@ -59,7 +63,9 @@ export default function NotificationSettingsScreen() {
   const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => {
-    getPermissionStatus().then(({ status }) => setOsStatus(status));
+    getPermissionStatus().then((permission) =>
+      setOsStatus(isNotificationPermissionGranted(permission) ? 'granted' : permission.status)
+    );
   }, []);
 
   const osEnabled = osStatus === 'granted';
@@ -70,6 +76,12 @@ export default function NotificationSettingsScreen() {
       const status = await requestAndRegisterPushToken();
       setOsStatus(status);
       await mutateMe();
+    } catch (error) {
+      console.warn('Could not enable push notifications', error);
+      Alert.alert(
+        'Kunne ikke registrere enheten',
+        'Systemtillatelsen kan være aktiv, men push-tjenesten kunne ikke registreres. Kontroller nettverk og appens push-oppsett.'
+      );
     } finally {
       setRequesting(false);
     }
@@ -94,11 +106,14 @@ export default function NotificationSettingsScreen() {
     setSendingTest(true);
     try {
       await api.sendTestNotification();
+      Alert.alert('Testvarsel sendt', 'Expo har godtatt varselet for levering til enheten.');
     } catch (err) {
       const message =
         err instanceof ApiError && err.status === 400
           ? 'Ingen push-token registrert. Aktiver varslinger over først.'
-          : 'Klarte ikke å sende testvarsel. Prøv igjen.';
+          : err instanceof ApiError && err.status === 502
+            ? 'Expo avviste varselet. Kontroller APNs/FCM-credentials og prøv igjen.'
+            : 'Klarte ikke å sende testvarsel. Prøv igjen.';
       Alert.alert('Noe gikk galt', message);
     } finally {
       setSendingTest(false);
@@ -151,7 +166,7 @@ export default function NotificationSettingsScreen() {
             <Separator />
             <Row
               label="Aktivitet"
-              description="Når noen fullfører eller angrer en oppgave"
+              description="Oppgaveaktivitet og ukesoppsummering"
               value={me?.notifyActivity ?? true}
               onChange={(v) => updatePreference('notifyActivity', v)}
               disabled={!osEnabled || saving === 'notifyActivity'}

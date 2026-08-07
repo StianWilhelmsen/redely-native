@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
@@ -45,9 +45,15 @@ export function NotificationPrompt() {
     setRequesting(true);
     try {
       await requestAndRegisterPushToken();
+      await dismiss();
+    } catch (error) {
+      console.warn('Could not enable push notifications', error);
+      Alert.alert(
+        'Kunne ikke aktivere varslinger',
+        'Tillatelsen kan være gitt, men enheten kunne ikke registreres. Prøv igjen under Varslingsinnstillinger.'
+      );
     } finally {
       setRequesting(false);
-      await dismiss();
     }
   };
 

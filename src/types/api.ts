@@ -96,6 +96,7 @@ export type Badge = {
 export type UserStats = {
   userId: number;
   name: string;
+  pictureUrl: string | null;
   weekPoints: number;
   lifetimePoints: number;
   level: number;
@@ -107,6 +108,9 @@ export type WeeklyStats = {
   weekEnd: string;
   totalPoints: number;
   goalPoints: number;
+  completedTasks: number;
+  quickActions: number;
+  goalReached: boolean;
   mvp: UserStats | null;
   leaderboard: UserStats[];
 };
@@ -210,4 +214,13 @@ export type ChatMessage = {
 export type ChatReadState = {
   userId: number;
   lastReadMessageId: number;
+};
+
+export type ChatConversation = {
+  type: 'GROUP' | 'DIRECT';
+  peerId: number | null;
+  title: string;
+  pictureUrl: string | null;
+  lastMessage: ChatMessage | null;
+  unreadCount: number;
 };

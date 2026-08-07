@@ -56,5 +56,4 @@ function createReadMarker(storageKey: string, firstRun: 'zero' | 'now' = 'zero')
   };
 }
 
-export const chatReadMarker = createReadMarker('ryddig-kollektiv:chat-last-read-id');
 export const paymentsReadMarker = createReadMarker('ryddig-kollektiv:payments-last-seen-at', 'now');

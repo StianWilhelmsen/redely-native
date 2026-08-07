@@ -3,7 +3,7 @@ import useSWR from 'swr';
 
 import { useMe } from '@/hooks/use-me';
 import { api } from '@/lib/api';
-import { chatReadMarker, paymentsReadMarker } from '@/lib/unread-store';
+import { paymentsReadMarker } from '@/lib/unread-store';
 
 function useMarkerValue(marker: { getValue: () => number; subscribe: (l: () => void) => () => void }) {
   const [, forceRender] = useState(0);
@@ -20,25 +20,17 @@ function useMarkerValue(marker: { getValue: () => number; subscribe: (l: () => v
  */
 const BADGE_POLL_MS = 30_000;
 
-/** Unread chat messages: anything from someone else newer than the last message you saw. */
+/** Backend-authoritative unread total across the shared chat and every DM. */
 export function useUnreadChat() {
   const { data: me } = useMe();
-  const { data: messages } = useSWR(me?.collective ? 'chat-messages' : null, () => api.chatMessages(), {
-    refreshInterval: BADGE_POLL_MS,
-  });
-  const lastReadId = useMarkerValue(chatReadMarker);
-
-  const markRead = () => {
-    if (messages && messages.length > 0) {
-      chatReadMarker.markRead(messages[messages.length - 1].id);
-    }
+  const { data: conversations } = useSWR(
+    me?.collective ? 'chat-conversations' : null,
+    api.chatConversations,
+    { refreshInterval: BADGE_POLL_MS }
+  );
+  return {
+    unreadCount: conversations?.reduce((sum, conversation) => sum + conversation.unreadCount, 0) ?? 0,
   };
-
-  const unreadCount = messages
-    ? messages.filter((m) => m.id > lastReadId && m.senderId !== me?.id).length
-    : 0;
-
-  return { unreadCount, markRead };
 }
 
 /** Unread "someone paid you back": shares of your own expenses marked paid since you last checked Regninger. */

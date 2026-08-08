@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AnimatedNumber } from '@/components/animated-number';
+import { Section } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -16,8 +17,12 @@ type Props = {
   badges: Badge[];
 };
 
-/** Your own level, points and earned badges - the personal half of the points system. */
-export function LevelCard({
+/**
+ * Your own level, points and earned badges - the personal half of the points system.
+ * Unboxed on purpose: sits directly on the screen background like every other Section,
+ * rather than inside its own card.
+ */
+export function LevelSection({
   level,
   lifetimePoints,
   weekPoints,
@@ -30,7 +35,7 @@ export function LevelCard({
   const percent = Math.max(0, Math.min(100, levelProgressPercent));
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+    <Section title="Nivå">
       <View style={styles.topRow}>
         <View style={[styles.levelBadge, { backgroundColor: theme.brand }]}>
           <ThemedText type="small" themeColor="onBrand" style={styles.levelLabel}>
@@ -77,16 +82,11 @@ export function LevelCard({
           ))}
         </View>
       )}
-    </View>
+    </Section>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: Radii.card,
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',

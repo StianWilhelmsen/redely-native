@@ -2,15 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image } from 'expo-image';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import useSWR, { useSWRConfig } from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
-import { BarChart } from '@/components/bar-chart';
-import { DonutProgress } from '@/components/donut-progress';
 import { ErrorState } from '@/components/error-state';
-import { LevelCard } from '@/components/me/level-card';
+import { currentMonthLabel, MonthActivityHeatmap } from '@/components/me/month-activity-heatmap';
+import { LevelSection } from '@/components/me/level-section';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
@@ -213,7 +211,7 @@ export default function MeScreen() {
       ) : (
         myStats && (
         <>
-          <LevelCard
+          <LevelSection
             level={myStats.level}
             lifetimePoints={myStats.lifetimePoints}
             weekPoints={myStats.weekPoints}
@@ -222,24 +220,8 @@ export default function MeScreen() {
             badges={myStats.badges}
           />
 
-          <View style={[styles.statsCard, { backgroundColor: theme.backgroundElement }]}>
-            <DonutProgress percent={myStats.completionPercentThisMonth} />
-            <View style={styles.statsCardInfo}>
-              <ThemedText type="heading">{myStats.completedThisMonth} oppgaver</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                fullført denne måneden
-              </ThemedText>
-              <View style={styles.streakLine}>
-                <Image source={require('@/assets/icons/flame.png')} style={styles.streakIcon} contentFit="contain" />
-                <ThemedText type="small" themeColor="textSecondary">
-                  {myStats.streakDays} dager personlig streak
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
-          <Section title="Din aktivitet siste 7 dager">
-            <BarChart data={myStats.last7DaysActivity} />
+          <Section title="Aktivitet" meta={currentMonthLabel()}>
+            <MonthActivityHeatmap data={myStats.monthActivity} />
           </Section>
         </>
         )
@@ -308,27 +290,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.four,
-    borderRadius: Radii.card,
-    padding: Spacing.four,
-  },
-  statsCardInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  streakLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: Spacing.one,
-  },
-  streakIcon: {
-    width: 16,
-    height: 16,
   },
   taskList: {
     gap: Spacing.two + 2,

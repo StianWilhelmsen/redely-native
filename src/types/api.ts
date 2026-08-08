@@ -215,11 +215,18 @@ export type CollectiveStats = {
   leaderboard: LeaderboardEntry[];
 };
 
+export type DayActivity = {
+  date: string; // yyyy-MM-dd
+  count: number;
+};
+
 export type MyStats = {
   completionPercentThisMonth: number;
   completedThisMonth: number;
   streakDays: number;
-  last7DaysActivity: DayCount[];
+  /** Every day of the current calendar month, including days that haven't happened yet
+   *  (at 0) — the "Meg" tab's contribution heatmap. */
+  monthActivity: DayActivity[];
   weekPoints: number;
   lifetimePoints: number;
   level: number;

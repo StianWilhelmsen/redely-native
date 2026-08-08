@@ -162,7 +162,9 @@ function RootNavigator() {
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
-          <Stack.Screen name="weekly-summary" options={{ presentation: 'modal' }} />
+          {/* Full screen, not a sheet: the weekly story is edge-to-edge and paints its
+              own background all the way into the safe areas. */}
+          <Stack.Screen name="weekly-summary" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
           <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />

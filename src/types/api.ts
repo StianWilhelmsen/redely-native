@@ -103,7 +103,30 @@ export type UserStats = {
   badges: Badge[];
 };
 
+export type WeeklyTask = {
+  taskId: number;
+  title: string;
+  points: number;
+  completed: boolean;
+  assigneeUserId: number | null;
+  assigneeName: string | null;
+  assigneePictureUrl: string | null;
+  /** 0 = Monday ... 6 = Sunday. Null while the chore is still open. */
+  completedDayIndex: number | null;
+};
+
+export type WeeklyQuickActions = {
+  userId: number;
+  name: string;
+  pictureUrl: string | null;
+  count: number;
+  topActionTitle: string | null;
+  topActionEmoji: string | null;
+  topActionCount: number;
+};
+
 export type WeeklyStats = {
+  collectiveName: string | null;
   weekStart: string; // yyyy-MM-dd
   weekEnd: string;
   totalPoints: number;
@@ -111,6 +134,15 @@ export type WeeklyStats = {
   completedTasks: number;
   quickActions: number;
   goalReached: boolean;
+  previousWeekPoints: number;
+  plannedTasks: number;
+  plannedTasksCompleted: number;
+  tasks: WeeklyTask[];
+  quickActionsByUser: WeeklyQuickActions[];
+  /** Mon–Sun activity (task completions + quick actions) for the recap chart. */
+  dayCounts: DayCount[];
+  /** Consecutive weeks the current MVP has held the title. 0 when there is no MVP. */
+  mvpStreakWeeks: number;
   mvp: UserStats | null;
   leaderboard: UserStats[];
 };

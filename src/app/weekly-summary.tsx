@@ -1,45 +1,61 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Fragment, useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 
-import { AvatarBadge } from '@/components/avatar-badge';
-import { ErrorState } from '@/components/error-state';
-import { RefreshSpinner } from '@/components/refresh-spinner';
-import { ScreenScroll } from '@/components/screen-scroll';
-import { Section, Separator } from '@/components/section';
-import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { ConfettiBurst } from '@/components/celebration/confetti-burst';
+import { PaneCover } from '@/components/weekly-summary/pane-cover';
+import { PaneGoal } from '@/components/weekly-summary/pane-goal';
+import { PaneLeaderboard } from '@/components/weekly-summary/pane-leaderboard';
+import { PaneMvp } from '@/components/weekly-summary/pane-mvp';
+import { PaneQuickActions } from '@/components/weekly-summary/pane-quick-actions';
+import { PaneRecap, RecapFooter, type ShareState } from '@/components/weekly-summary/pane-recap';
+import { PaneTasks } from '@/components/weekly-summary/pane-tasks';
+import { StoryPager, type StoryPaneDefinition } from '@/components/weekly-summary/story-pager';
+import { Ink, PaneSkins, StoryConfetti } from '@/components/weekly-summary/story-theme';
+import { FontFamily, Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
-import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { isoWeekNumber, shareMessage } from '@/lib/weekly-summary-copy';
 import {
   currentOsloWeekStart,
   markWeeklySummarySeen,
   sundaySummaryWeek,
 } from '@/lib/weekly-summary';
-
-function formatWeekRange(weekStart: string, weekEnd: string): string {
-  const start = new Date(`${weekStart}T12:00:00`);
-  const end = new Date(`${weekEnd}T12:00:00`);
-  const startLabel = start.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
-  const endLabel = end.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
-  return `${startLabel} – ${endLabel}`;
-}
+import type { WeeklyStats } from '@/types/api';
 
 export default function WeeklySummaryScreen() {
-  const theme = useTheme();
   const { data: me } = useMe();
   const params = useLocalSearchParams<{ weekStart?: string | string[] }>();
   const requestedWeek = Array.isArray(params.weekStart) ? params.weekStart[0] : params.weekStart;
-  const weekStart = requestedWeek && /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek)
-    ? requestedWeek
-    : currentOsloWeekStart();
+  const weekStart =
+    requestedWeek && /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek)
+      ? requestedWeek
+      : currentOsloWeekStart();
 
-  const { data, error, isLoading, mutate } = useSWR(
-    ['weekly-summary', weekStart],
-    () => api.weeklyStatsForWeek(weekStart)
+  const { data: raw, error, isLoading, mutate } = useSWR(['weekly-summary', weekStart], () =>
+    api.weeklyStatsForWeek(weekStart)
+  );
+
+  // The story pulls apart fields an older backend doesn't send yet. Filling them in means an
+  // app that gets ahead of a deploy shows a thinner week rather than a crash.
+  const data = useMemo<WeeklyStats | undefined>(
+    () =>
+      raw && {
+        ...raw,
+        previousWeekPoints: raw.previousWeekPoints ?? 0,
+        plannedTasks: raw.plannedTasks ?? 0,
+        plannedTasksCompleted: raw.plannedTasksCompleted ?? 0,
+        mvpStreakWeeks: raw.mvpStreakWeeks ?? 0,
+        tasks: raw.tasks ?? [],
+        quickActionsByUser: raw.quickActionsByUser ?? [],
+        dayCounts: raw.dayCounts ?? [],
+        leaderboard: raw.leaderboard ?? [],
+      },
+    [raw]
   );
 
   const isFinished = weekStart !== currentOsloWeekStart() || sundaySummaryWeek() === weekStart;
@@ -49,196 +65,226 @@ export default function WeeklySummaryScreen() {
     markWeeklySummarySeen(me.id, weekStart).catch(() => {});
   }, [isFinished, me?.id, weekStart]);
 
-  const title = isFinished ? 'Ukesoppsummering' : 'Uken så langt';
-  const progress = data?.goalPoints
-    ? Math.min(100, Math.round((data.totalPoints / data.goalPoints) * 100))
-    : 0;
+  const [shareState, setShareState] = useState<ShareState>('idle');
+  const [celebration, setCelebration] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  const closeButton = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Lukk ukesoppsummeringen"
-      onPress={() => router.back()}
-      hitSlop={Spacing.two}
-      style={[styles.closeButton, { backgroundColor: theme.backgroundElement }]}>
-      <Ionicons name="close" size={22} color={theme.text} />
-    </Pressable>
-  );
+  const share = useCallback(async () => {
+    if (!data) return;
+    setShareState('sending');
+    try {
+      await api.sendChatMessage(shareMessage(data));
+      setShareState('sent');
+      setCelebration(`share-${Date.now()}`);
+    } catch {
+      setShareState('failed');
+    }
+  }, [data]);
+
+  const panes = useMemo<StoryPaneDefinition[]>(() => {
+    if (!data) return [];
+
+    const list: StoryPaneDefinition[] = [
+      {
+        key: 'cover',
+        skin: PaneSkins.cover,
+        content: <PaneCover data={data} isFinished={isFinished} />,
+      },
+      { key: 'goal', skin: PaneSkins.goal, content: <PaneGoal data={data} /> },
+      { key: 'tasks', skin: PaneSkins.tasks, content: <PaneTasks data={data} /> },
+      {
+        key: 'quick-actions',
+        skin: PaneSkins.quickActions,
+        content: <PaneQuickActions data={data} />,
+      },
+    ];
+
+    if (data.mvp) {
+      list.push({ key: 'mvp', skin: PaneSkins.mvp, content: <PaneMvp data={data} mvp={data.mvp} /> });
+    }
+
+    list.push(
+      { key: 'leaderboard', skin: PaneSkins.leaderboard, content: <PaneLeaderboard data={data} /> },
+      {
+        key: 'recap',
+        skin: PaneSkins.recap,
+        content: <PaneRecap data={data} />,
+        footer: <RecapFooter data={data} state={shareState} onShare={share} />,
+      }
+    );
+
+    return list;
+  }, [data, isFinished, share, shareState]);
+
+  // Confetti fires on the two panes worth celebrating: the goal pane once its ring has
+  // swept all the way round, and the recap at the end of the run. The delay is what makes
+  // it read as a reaction to the number landing rather than to the swipe.
+  const activeKey = panes[activeIndex]?.key;
+  const goalReached = data?.goalReached ?? false;
+  const scoredAnything = (data?.totalPoints ?? 0) > 0;
+
+  useEffect(() => {
+    const worthCelebrating =
+      (activeKey === 'goal' && goalReached) || (activeKey === 'recap' && scoredAnything);
+    if (!worthCelebrating) return;
+
+    const timer = setTimeout(() => setCelebration(`${activeKey}-${Date.now()}`), 750);
+    return () => clearTimeout(timer);
+  }, [activeKey, goalReached, scoredAnything]);
+
+  if (error) {
+    return (
+      <StoryFallback>
+        <Text style={styles.fallbackText}>Klarte ikke å hente ukesoppsummeringen.</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => mutate()}
+          style={({ pressed }) => [styles.retry, pressed && styles.retryPressed]}>
+          <Text style={styles.retryText}>Prøv igjen</Text>
+        </Pressable>
+      </StoryFallback>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <StoryFallback>
+        <ActivityIndicator color={Ink.primary} />
+      </StoryFallback>
+    );
+  }
 
   return (
-    <ScreenScroll
-      eyebrow={data ? formatWeekRange(data.weekStart, data.weekEnd) : 'Mandag – søndag'}
-      title={title}
-      headerRight={closeButton}>
-      {error ? (
-        <ErrorState message="Klarte ikke å hente ukesoppsummeringen." onRetry={() => mutate()} />
-      ) : isLoading || !data ? (
-        <RefreshSpinner active />
-      ) : (
-        <>
-          <Section title="Felles ukesmål" meta={data.goalReached ? 'Målet er nådd' : undefined}>
-            <View style={styles.goalHeader}>
-              <ThemedText type="subtitle">{data.totalPoints}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                av {data.goalPoints} poeng
-              </ThemedText>
-            </View>
-            <View
-              accessibilityRole="progressbar"
-              accessibilityValue={{ min: 0, max: data.goalPoints, now: data.totalPoints }}
-              style={[styles.progressTrack, { backgroundColor: theme.backgroundSelected }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progress}%`,
-                    backgroundColor: data.goalReached ? theme.success : theme.brand,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.factRow}>
-              <View style={styles.fact}>
-                <ThemedText type="heading">{data.completedTasks}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  fullførte oppgaver
-                </ThemedText>
-              </View>
-              <View style={[styles.factDivider, { backgroundColor: theme.border }]} />
-              <View style={styles.fact}>
-                <ThemedText type="heading">{data.quickActions}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  småoppgaver
-                </ThemedText>
-              </View>
-            </View>
-          </Section>
-
-          {data.mvp && (
-            <Section title={isFinished ? 'Ukens MVP' : 'MVP akkurat nå'}>
-              <View style={[styles.mvpRow, { backgroundColor: theme.backgroundElement }]}>
-                <AvatarBadge
-                  userId={data.mvp.userId}
-                  name={data.mvp.name}
-                  pictureUrl={data.mvp.pictureUrl}
-                  size={44}
-                  shape="circle"
-                />
-                <View style={styles.memberText}>
-                  <ThemedText type="heading" numberOfLines={1}>
-                    {data.mvp.name}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {data.mvp.weekPoints} poeng denne uken
-                  </ThemedText>
-                </View>
-                <View style={[styles.mvpBadge, { backgroundColor: `${theme.brandSecondary}2B` }]}>
-                  <ThemedText type="smallBold" style={{ color: theme.brandSecondary }}>
-                    MVP
-                  </ThemedText>
-                </View>
-              </View>
-            </Section>
-          )}
-
-          <Section title="Poengfordeling">
-            <View style={[styles.ranking, { backgroundColor: theme.backgroundElement }]}>
-              {data.leaderboard.map((member, index) => (
-                <Fragment key={member.userId}>
-                  {index > 0 && <Separator />}
-                  <View style={styles.rankRow}>
-                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.rankNumber}>
-                      {index + 1}
-                    </ThemedText>
-                    <AvatarBadge
-                      userId={member.userId}
-                      name={member.name}
-                      pictureUrl={member.pictureUrl}
-                      size={34}
-                      shape="circle"
-                    />
-                    <View style={styles.memberText}>
-                      <ThemedText type="smallBold" numberOfLines={1}>
-                        {member.name}
-                      </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        Nivå {member.level}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="smallBold">{member.weekPoints} p</ThemedText>
-                  </View>
-                </Fragment>
-              ))}
-            </View>
-          </Section>
-        </>
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <StoryPager
+        panes={panes}
+        onIndexChange={setActiveIndex}
+        header={<StoryHeader data={data} />}
+      />
+      {celebration && (
+        <View style={styles.confetti} pointerEvents="none">
+          {/* Keyed, not just passed a new burstKey: the particles animate from their own
+              mount effect, so a replay needs a fresh mount. */}
+          <ConfettiBurst key={celebration} burstKey={celebration} colors={StoryConfetti} />
+        </View>
       )}
-    </ScreenScroll>
+    </View>
+  );
+}
+
+function StoryHeader({ data }: { data: WeeklyStats }) {
+  return (
+    <View style={styles.header} pointerEvents="box-none">
+      <View style={styles.weekLabel}>
+        <Ionicons name="time-outline" size={13} color={Ink.secondary} />
+        <Text style={styles.weekText} numberOfLines={1}>
+          {`Uke ${isoWeekNumber(data.weekStart)}${data.collectiveName ? ` · ${data.collectiveName}` : ''}`}
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Lukk ukesoppsummeringen"
+        onPress={() => router.back()}
+        hitSlop={Spacing.two}
+        style={({ pressed }) => [styles.close, pressed && styles.closePressed]}>
+        <Ionicons name="close" size={19} color={Ink.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
+function StoryFallback({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.root, styles.fallback]}>
+      <StatusBar style="light" />
+      {children}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Lukk ukesoppsummeringen"
+        onPress={() => router.back()}
+        style={[styles.fallbackClose, { top: insets.top + Spacing.three }]}>
+        <Ionicons name="close" size={19} color={Ink.primary} />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  root: {
+    flex: 1,
+    backgroundColor: PaneSkins.recap.gradient[0],
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three - 2,
+  },
+  weekLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one + 2,
+  },
+  weekText: {
+    flexShrink: 1,
+    fontFamily: FontFamily.medium,
+    fontSize: 12,
+    color: Ink.secondary,
+  },
+  close: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Ink.surfaceStrong,
   },
-  goalHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.two,
+  closePressed: {
+    opacity: 0.7,
   },
-  progressTrack: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
+  confetti: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 60,
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  factRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingTop: Spacing.two,
-  },
-  fact: {
-    flex: 1,
-    gap: 2,
-  },
-  factDivider: {
-    width: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.three,
-  },
-  mvpRow: {
-    flexDirection: 'row',
+  fallback: {
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.three,
-    borderRadius: Radii.card,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.four,
   },
-  mvpBadge: {
-    borderRadius: Radii.chip,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
+  fallbackText: {
+    fontFamily: FontFamily.medium,
+    fontSize: 15,
+    textAlign: 'center',
+    color: Ink.secondary,
   },
-  ranking: {
-    borderRadius: Radii.card,
-    paddingHorizontal: Spacing.three,
-  },
-  rankRow: {
-    minHeight: 62,
-    flexDirection: 'row',
+  fallbackClose: {
+    position: 'absolute',
+    right: Spacing.four,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    gap: Spacing.two,
+    justifyContent: 'center',
+    backgroundColor: Ink.surfaceStrong,
   },
-  rankNumber: {
-    width: 18,
+  retry: {
+    borderRadius: Radii.pill,
+    backgroundColor: Ink.surfaceStrong,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two + 2,
   },
-  memberText: {
-    flex: 1,
-    minWidth: 0,
+  retryPressed: {
+    opacity: 0.8,
+  },
+  retryText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    color: Ink.primary,
   },
 });

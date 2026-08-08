@@ -54,11 +54,20 @@ function ConfettiParticle({ color, params }: { color: string; params: ParticlePa
 /**
  * Mount this to play a one-shot confetti burst; unmount it (or change `burstKey`)
  * to replay. Non-interactive — sits above content, ignores touches.
+ *
+ * `colors` overrides the palette-derived default, for surfaces that don't follow the
+ * app palette (the weekly story runs on its own fixed colors).
  */
-export function ConfettiBurst({ burstKey }: { burstKey: number | string }) {
+export function ConfettiBurst({
+  burstKey,
+  colors: colorOverride,
+}: {
+  burstKey: number | string;
+  colors?: string[];
+}) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const colors = [theme.brand, theme.brandSecondary, theme.success, theme.danger];
+  const colors = colorOverride ?? [theme.brand, theme.brandSecondary, theme.success, theme.danger];
 
   const particles = useMemo<ParticleParams[]>(
     () =>

@@ -1,32 +1,25 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import useSWR, { useSWRConfig } from 'swr';
 
-import { AvatarBadge } from '@/components/avatar-badge';
 import { ErrorState } from '@/components/error-state';
 import { currentMonthLabel, MonthActivityHeatmap } from '@/components/me/month-activity-heatmap';
-import { LevelSection } from '@/components/me/level-section';
+import { ProfileOverview } from '@/components/me/profile-overview';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
 import { TaskCard } from '@/components/tasks/task-card';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
-import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { addDays, formatShortDate, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
+import { quickActionFlavor } from '@/lib/weekly-summary-copy';
 import type { Task } from '@/types/api';
 
-function formatKr(amount: number): string {
-  return `${Math.round(amount)} kr`;
-}
-
 export default function MeScreen() {
-  const theme = useTheme();
   const { data: me, error: meError, isLoading, mutate: mutateMe } = useMe();
   const { mutate: globalMutate } = useSWRConfig();
   const [uploadingPicture, setUploadingPicture] = useState(false);
@@ -36,6 +29,9 @@ export default function MeScreen() {
     me?.collective ? 'my-stats' : null,
     api.myStats
   );
+  // Shares the 'weekly-stats' cache key with Hjem, so it's usually already warm by the
+  // time someone lands here - it supplies this week's småjobb count and the highlight quote.
+  const { data: weeklyStats } = useSWR(me?.collective ? 'weekly-stats' : null, api.weeklyStats);
   const { data: tasks, mutate: mutateTasks } = useSWR(me?.collective ? 'tasks' : null, api.tasks);
   const { data: expenses } = useSWR(me?.collective ? 'expenses' : null, api.expenses);
 
@@ -69,6 +65,7 @@ export default function MeScreen() {
       mutateMe(),
       globalMutate('members'),
       mutateMyStats(),
+      globalMutate('weekly-stats'),
       globalMutate('tasks'),
       globalMutate('expenses'),
     ]);
@@ -131,6 +128,12 @@ export default function MeScreen() {
     .filter((s) => s.user.id === me.id && !s.paid)
     .reduce((sum, s) => sum + s.amountOwed, 0);
 
+  const myWeeklyQuickActions = weeklyStats?.quickActionsByUser.find((entry) => entry.userId === me.id);
+  const highlight =
+    myWeeklyQuickActions && weeklyStats
+      ? quickActionFlavor(myWeeklyQuickActions, weeklyStats.weekStart)
+      : null;
+
   // Actually bounded to the current Mon-Sun week. Previously this only checked "has a due
   // date at all", so the six slots filled up with the oldest overdue tasks and this week's
   // work never appeared - despite the heading promising exactly that.
@@ -149,82 +152,37 @@ export default function MeScreen() {
       return parseDueDateLocal(a.dueDate)!.getTime() - parseDueDateLocal(b.dueDate)!.getTime();
     });
 
-  const settingsButton = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Innstillinger"
-      onPress={() => router.push('/settings')}
-      hitSlop={Spacing.two}
-      style={[styles.settingsButton, { backgroundColor: theme.backgroundElement }]}>
-      <Ionicons name="settings-outline" size={20} color={theme.text} />
-    </Pressable>
-  );
-
   return (
-    <ScreenScroll
-      eyebrow="Din side"
-      title="Meg"
-      headerRight={settingsButton}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}>
-      <View style={styles.profile}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Endre profilbilde"
-          onPress={handlePickProfilePicture}
-          disabled={uploadingPicture}
-          style={styles.avatarWrap}>
-          <AvatarBadge userId={me.id} name={me.name} pictureUrl={me.pictureUrl} shape="circle" size={84} />
-          <View style={[styles.avatarEditBadge, { backgroundColor: theme.brand, borderColor: theme.background }]}>
-            {uploadingPicture ? (
-              <ActivityIndicator size="small" color={theme.onBrand} />
-            ) : (
-              <Ionicons name="camera" size={14} color={theme.onBrand} />
-            )}
-          </View>
-        </Pressable>
-        <ThemedText type="heading">{me.name}</ThemedText>
-        {me.collective && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {me.collective.name} · {memberCount} medlem{memberCount === 1 ? '' : 'mer'}
-          </ThemedText>
-        )}
-        {totalOwed > 0 && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Du skylder ${formatKr(totalOwed)}. Gå til regninger.`}
-            onPress={() => router.push('/shopping')}
-            style={({ pressed }) => [
-              styles.owedPill,
-              { backgroundColor: `${theme.danger}1C` },
-              pressed && styles.owedPillPressed,
-            ]}>
-            <ThemedText type="small" style={{ color: theme.danger }}>
-              Du skylder {formatKr(totalOwed)} →
-            </ThemedText>
-          </Pressable>
-        )}
-      </View>
-
+    <ScreenScroll refreshing={refreshing} onRefresh={handleRefresh}>
       {myStatsError ? (
         <ErrorState message="Klarte ikke å hente statistikk." onRetry={() => mutateMyStats()} />
       ) : (
         myStats && (
-        <>
-          <LevelSection
+          <ProfileOverview
+            me={me}
+            memberCount={memberCount}
+            totalOwed={totalOwed}
+            onOwedPress={() => router.push('/shopping')}
+            onEditPicture={handlePickProfilePicture}
+            uploadingPicture={uploadingPicture}
+            onSettingsPress={() => router.push('/settings')}
             level={myStats.level}
             lifetimePoints={myStats.lifetimePoints}
             weekPoints={myStats.weekPoints}
             pointsToNextLevel={myStats.pointsToNextLevel}
             levelProgressPercent={myStats.levelProgressPercent}
             badges={myStats.badges}
+            streakDays={myStats.streakDays}
+            weekQuickActions={myWeeklyQuickActions?.count ?? 0}
+            highlight={highlight}
           />
-
-          <Section title="Aktivitet" meta={currentMonthLabel()}>
-            <MonthActivityHeatmap data={myStats.monthActivity} />
-          </Section>
-        </>
         )
+      )}
+
+      {myStats && (
+        <Section title="Aktivitet" meta={currentMonthLabel()}>
+          <MonthActivityHeatmap data={myStats.monthActivity} />
+        </Section>
       )}
 
       <Section title="Mine oppgaver denne uken">
@@ -257,40 +215,6 @@ export default function MeScreen() {
 }
 
 const styles = StyleSheet.create({
-  profile: {
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  avatarWrap: {
-    position: 'relative',
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  owedPill: {
-    marginTop: Spacing.one,
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-  },
-  owedPillPressed: {
-    opacity: 0.75,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   taskList: {
     gap: Spacing.two + 2,
   },

@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
+import { CollectiveAvatar } from '@/components/collective-avatar';
 import { PrimaryButton } from '@/components/primary-button';
 import { Section, Separator } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
@@ -38,8 +40,41 @@ export default function CollectiveSettingsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { data: me, mutate: mutateMe } = useMe();
+  const { mutate: globalMutate } = useSWRConfig();
 
   const { data: members, mutate: mutateMembers } = useSWR(me?.collective ? 'members' : null, api.members);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
+
+  const handlePickCollectivePicture = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Ingen tilgang', 'Du må gi tilgang til bilder for å sette kollektivbilde.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';
+    const type = asset.mimeType ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
+
+    setUploadingPicture(true);
+    try {
+      await api.updateCollectivePicture({ uri: asset.uri, name: asset.fileName ?? `collective.${ext}`, type });
+      await mutateMe();
+      globalMutate('weekly-stats');
+    } catch (err) {
+      Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Kunne ikke laste opp bildet.');
+    } finally {
+      setUploadingPicture(false);
+    }
+  };
 
   const [collectiveName, setCollectiveName] = useState('');
   const [editingCollectiveName, setEditingCollectiveName] = useState(false);
@@ -159,6 +194,35 @@ export default function CollectiveSettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             {me?.collective ? (
               <>
+                <View style={styles.pictureRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Endre kollektivbilde"
+                    onPress={me.admin ? handlePickCollectivePicture : undefined}
+                    disabled={!me.admin || uploadingPicture}
+                    style={styles.pictureWrap}>
+                    <CollectiveAvatar pictureUrl={me.collective.pictureUrl} size={64} />
+                    {me.admin && (
+                      <View
+                        style={[
+                          styles.pictureEditBadge,
+                          { backgroundColor: theme.brand, borderColor: theme.backgroundElement },
+                        ]}>
+                        {uploadingPicture ? (
+                          <ActivityIndicator size="small" color={theme.onBrand} />
+                        ) : (
+                          <Ionicons name="camera" size={12} color={theme.onBrand} />
+                        )}
+                      </View>
+                    )}
+                  </Pressable>
+                  {!me.admin && (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.pictureHint}>
+                      Bare en admin kan endre kollektivbildet.
+                    </ThemedText>
+                  )}
+                </View>
+                <Separator />
                 {editingCollectiveName ? (
                   <View style={styles.editColumn}>
                     <TextInput
@@ -301,6 +365,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: Spacing.three,
+  },
+  pictureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
+  pictureWrap: {
+    position: 'relative',
+  },
+  pictureEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pictureHint: {
+    flex: 1,
   },
   rowRight: {
     flexDirection: 'row',

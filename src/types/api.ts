@@ -10,6 +10,7 @@ export type Member = {
 export type Collective = {
   id: number;
   name: string;
+  pictureUrl: string | null;
 };
 
 export type Me = {
@@ -143,6 +144,8 @@ export type WeeklyStats = {
   dayCounts: DayCount[];
   /** Consecutive weeks the current MVP has held the title. 0 when there is no MVP. */
   mvpStreakWeeks: number;
+  /** Consecutive *completed* weeks before this one where the shared goal was reached. */
+  goalStreakWeeks: number;
   mvp: UserStats | null;
   leaderboard: UserStats[];
 };
@@ -248,6 +251,23 @@ export type ChatMessage = {
   content: string | null;
   imageUrl: string | null;
   createdAt: string; // ISO instant
+  /** Null for the shared chat - tells group and direct messages apart when both arrive
+   *  over the live WebSocket feed. */
+  recipientId: number | null;
+};
+
+/** Pushed live over the collective WebSocket while someone is composing a message.
+ *  peerId null = the shared chat; otherwise a direct conversation with that member. */
+export type TypingEvent = {
+  userId: number;
+  name: string;
+  peerId: number | null;
+};
+
+/** Pushed live when a member's socket connects or disconnects - the chat list's online dot. */
+export type PresenceEvent = {
+  userId: number;
+  online: boolean;
 };
 
 export type ChatReadState = {

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -6,8 +7,9 @@ import { useTheme } from '@/hooks/use-theme';
 
 type SectionProps = ViewProps & {
   title: string;
-  /** Small text rendered right-aligned next to the title. */
-  meta?: string;
+  /** Right-aligned next to the title - plain text renders as a muted caption,
+   *  anything else (e.g. a "Se alle" link) renders as-is. */
+  meta?: string | ReactNode;
 };
 
 /**
@@ -19,11 +21,14 @@ export function Section({ title, meta, children, style, ...rest }: SectionProps)
     <View style={[styles.section, style]} {...rest}>
       <View style={styles.header}>
         <ThemedText type="heading">{title}</ThemedText>
-        {meta && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {meta}
-          </ThemedText>
-        )}
+        {meta &&
+          (typeof meta === 'string' ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {meta}
+            </ThemedText>
+          ) : (
+            meta
+          ))}
       </View>
       {children}
     </View>

@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useSWR, { useSWRConfig } from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
+import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ThemedText } from '@/components/themed-text';
@@ -29,9 +30,17 @@ import { localDateKey, relativeDayLabel } from '@/lib/date-utils';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
-import type { ChatMessage, Member } from '@/types/api';
+import { useCollectiveEvent, usePublishToSocket } from '@/lib/collective-socket';
+import type { ChatMessage, Member, TypingEvent } from '@/types/api';
 
-const POLL_INTERVAL_MS = 2500;
+// The live WebSocket connection is the primary delivery path now - this interval is just
+// a safety net for whatever it misses (a dropped connection, a message from before this
+// screen mounted its subscription).
+const POLL_INTERVAL_MS = 20_000;
+// Re-announce "still typing" at most this often while someone keeps typing, and the
+// receiving side treats silence past this long as "stopped".
+const TYPING_ANNOUNCE_MS = 2000;
+const TYPING_EXPIRE_MS = 4000;
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
@@ -66,6 +75,48 @@ function AnimatedMessageRow({ animate, children }: { animate: boolean; children:
   }, []);
 
   return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>;
+}
+
+/** Three dots pulsing in sequence inside a bubble - "someone is typing", styled to match
+ *  an incoming message bubble. `name` labels it in the group chat (several people could be
+ *  typing); a direct conversation only ever has one other person, so it's omitted there. */
+function TypingIndicator({ name }: { name?: string }) {
+  const theme = useTheme();
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
+
+  useEffect(() => {
+    const animations = dots.map((dot, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 150),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 300, useNativeDriver: true }),
+          Animated.delay((2 - index) * 150),
+        ])
+      )
+    );
+    Animated.parallel(animations).start();
+    return () => animations.forEach((a) => a.stop());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <View style={styles.typingRow}>
+      {name && (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.typingName}>
+          {name} skriver …
+        </ThemedText>
+      )}
+      <View style={[styles.typingBubble, { backgroundColor: theme.backgroundElement }]}>
+        {dots.map((dot, index) => (
+          <Animated.View
+            key={index}
+            style={[styles.typingDot, { backgroundColor: theme.textSecondary, opacity: dot }]}
+          />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export function ConversationView({
@@ -110,6 +161,48 @@ export function ConversationView({
     () => api.chatReadStates(peerId),
     { refreshInterval: chatPollInterval }
   );
+
+  const publish = usePublishToSocket();
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
+
+  // Live delivery: append a message the instant it arrives instead of waiting for the
+  // next poll tick. `recipientId` is what lets a shared-chat view and a DM with the same
+  // person tell each other's messages apart when both land on this one socket connection.
+  useCollectiveEvent<ChatMessage>('CHAT_MESSAGE', (message) => {
+    const belongsHere =
+      peerId == null
+        ? message.recipientId == null
+        : (message.recipientId === peerId && message.senderId === me?.id) ||
+          (message.recipientId === me?.id && message.senderId === peerId);
+    if (!belongsHere) return;
+
+    mutate(
+      (current) => {
+        if (!current) return current;
+        if (current.some((m) => m.id === message.id)) return current; // already have it (our own send)
+        return [...current, message];
+      },
+      { revalidate: false }
+    );
+  });
+
+  useCollectiveEvent<TypingEvent>('TYPING', (event) => {
+    if (event.userId === me?.id) return;
+    const belongsHere = peerId == null ? event.peerId == null : event.peerId === me?.id && event.userId === peerId;
+    if (!belongsHere) return;
+
+    setTypingUser(event.name);
+    if (typingClearRef.current) clearTimeout(typingClearRef.current);
+    typingClearRef.current = setTimeout(() => setTypingUser(null), TYPING_EXPIRE_MS);
+  });
+
+  useEffect(() => {
+    return () => {
+      if (typingClearRef.current) clearTimeout(typingClearRef.current);
+    };
+  }, []);
 
   const [text, setText] = useState('');
   const [image, setImage] = useState<PickedImage | null>(null);
@@ -260,6 +353,15 @@ export function ConversationView({
     ]);
   };
 
+  const handleChangeText = (value: string) => {
+    setText(value);
+    const now = Date.now();
+    if (value.trim() && now - lastTypingSentRef.current > TYPING_ANNOUNCE_MS) {
+      lastTypingSentRef.current = now;
+      publish('/typing', { peerId: peerId ?? null });
+    }
+  };
+
   const handleSend = async () => {
     const content = text.trim();
     if (!content && !image) return;
@@ -308,16 +410,16 @@ export function ConversationView({
             size={38}
           />
         ) : (
-          <View style={[styles.groupAvatar, { backgroundColor: `${theme.brand}1F` }]}>
-            <Ionicons name="people" size={20} color={theme.brand} />
-          </View>
+          <CollectiveAvatar pictureUrl={me?.collective?.pictureUrl} size={38} />
         )}
         <View style={styles.headerText}>
           <ThemedText type="heading" numberOfLines={1}>
             {target.type === 'DIRECT' ? target.peer.name : target.title}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {target.type === 'DIRECT' ? 'Privat samtale' : me?.collective?.name ?? 'Kollektivet'}
+            {target.type === 'DIRECT'
+              ? 'Privat samtale'
+              : `${me?.collective?.name ?? 'Kollektivet'} · ${members?.length ?? 0} medlem${members?.length === 1 ? '' : 'mer'}`}
           </ThemedText>
         </View>
       </View>
@@ -460,6 +562,8 @@ export function ConversationView({
         />
       )}
 
+      {typingUser && <TypingIndicator name={target.type === 'GROUP' ? typingUser : undefined} />}
+
       {image && (
         <View style={[styles.imagePreviewRow, { borderTopColor: theme.border }]}>
           <Image source={{ uri: image.uri }} style={styles.imagePreview} contentFit="cover" />
@@ -482,7 +586,7 @@ export function ConversationView({
         </Pressable>
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={handleChangeText}
           placeholder="Skriv en melding…"
           placeholderTextColor={theme.textSecondary}
           multiline
@@ -519,13 +623,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 40,
     alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  groupAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: {
@@ -621,6 +718,30 @@ const styles = StyleSheet.create({
   },
   readReceiptAvatarStacked: {
     marginLeft: -6,
+  },
+  typingRow: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.two,
+    gap: 2,
+  },
+  typingName: {
+    fontSize: 11,
+    marginLeft: Spacing.two,
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: Radii.card,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two + 2,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   imagePreviewRow: {
     flexDirection: 'row',

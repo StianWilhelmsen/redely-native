@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import useSWR from 'swr';
 
 import {
@@ -9,6 +9,7 @@ import {
   type ChatTarget,
 } from '@/components/chat/conversation-view';
 import { AvatarBadge } from '@/components/avatar-badge';
+import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
@@ -18,7 +19,8 @@ import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
-import type { ChatConversation } from '@/types/api';
+import { useCollectiveEvent } from '@/lib/collective-socket';
+import type { ChatConversation, ChatMessage, PresenceEvent } from '@/types/api';
 
 function formatConversationTime(iso: string) {
   const date = new Date(iso);
@@ -51,14 +53,40 @@ export default function ChatScreen() {
     mutate,
     isLoading,
   } = useSWR(me?.collective ? 'chat-conversations' : null, api.chatConversations, {
-    refreshInterval: 10_000,
+    // The live socket refreshes this the instant a message arrives (see below) - this
+    // interval is just the fallback for whatever it misses.
+    refreshInterval: 20_000,
   });
+  const { data: onlineIds, mutate: mutateOnline } = useSWR(
+    me?.collective ? 'online-members' : null,
+    api.onlineMembers,
+    { refreshInterval: 30_000 }
+  );
+  const [search, setSearch] = useState('');
 
   useFocusEffect(
     useCallback(() => {
       mutate();
     }, [mutate])
   );
+
+  // Any message anywhere (group or any DM) changes a preview/unread count somewhere in
+  // this list, so a full refetch is simpler and just as cheap as patching it in place.
+  useCollectiveEvent<ChatMessage>('CHAT_MESSAGE', () => {
+    mutate();
+  });
+
+  useCollectiveEvent<PresenceEvent>('PRESENCE', (event) => {
+    mutateOnline(
+      (current) => {
+        const set = new Set(current ?? []);
+        if (event.online) set.add(event.userId);
+        else set.delete(event.userId);
+        return Array.from(set);
+      },
+      { revalidate: false }
+    );
+  });
 
   useEffect(() => {
     if (!target) return;
@@ -84,14 +112,28 @@ export default function ChatScreen() {
   }
 
   const group = conversations?.find((conversation) => conversation.type === 'GROUP');
-  const direct = conversations?.filter((conversation) => conversation.type === 'DIRECT') ?? [];
+  const allDirect = conversations?.filter((conversation) => conversation.type === 'DIRECT') ?? [];
+  const query = search.trim().toLowerCase();
+  const direct = query ? allDirect.filter((c) => c.title.toLowerCase().includes(query)) : allDirect;
 
   return (
     <ScreenScroll
       eyebrow={me?.collective?.name ?? 'Kollektivet'}
       title="Meldinger"
       refreshing={isLoading}
-      onRefresh={mutate}>
+      onRefresh={mutate}
+      headerExtra={
+        <View style={[styles.searchBar, { backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="search" size={16} color={theme.textSecondary} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Søk i meldinger"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+        </View>
+      }>
       {error ? (
         <ErrorState message="Klarte ikke å hente samtalene." onRetry={() => mutate()} />
       ) : !conversations ? (
@@ -108,10 +150,25 @@ export default function ChatScreen() {
                 { backgroundColor: `${theme.brand}14`, borderColor: `${theme.brand}35` },
                 pressed && styles.pressed,
               ]}>
-              <View style={[styles.groupAvatar, { backgroundColor: theme.brand }]}>
-                <Ionicons name="people" size={24} color={theme.onBrand} />
+              <CollectiveAvatar pictureUrl={me?.collective?.pictureUrl} size={48} />
+              <View style={styles.conversationText}>
+                <View style={styles.groupTitleRow}>
+                  <ThemedText type="smallBold" numberOfLines={1}>
+                    {group.title}
+                  </ThemedText>
+                  <View style={[styles.allePill, { backgroundColor: `${theme.brand}22` }]}>
+                    <ThemedText type="small" themeColor="brand" style={styles.allePillText}>
+                      ALLE
+                    </ThemedText>
+                  </View>
+                </View>
+                <ThemedText
+                  type={group.unreadCount > 0 ? 'smallBold' : 'small'}
+                  themeColor={group.unreadCount > 0 ? 'text' : 'textSecondary'}
+                  numberOfLines={1}>
+                  {preview(group, me?.id)}
+                </ThemedText>
               </View>
-              <ConversationText conversation={group} myId={me?.id} />
               <ConversationMeta conversation={group} />
             </Pressable>
           )}
@@ -119,7 +176,9 @@ export default function ChatScreen() {
           <Section title="Direktemeldinger">
             {direct.length === 0 ? (
               <ThemedText type="small" themeColor="textSecondary">
-                Inviter noen til kollektivet for å starte en privat samtale.
+                {query
+                  ? 'Ingen treff.'
+                  : 'Inviter noen til kollektivet for å starte en privat samtale.'}
               </ThemedText>
             ) : (
               <View style={[styles.directCard, { backgroundColor: theme.backgroundElement }]}>
@@ -128,7 +187,9 @@ export default function ChatScreen() {
                     {index > 0 && <Separator />}
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`${conversation.title}${conversation.unreadCount ? `, ${conversation.unreadCount} uleste` : ''}`}
+                      accessibilityLabel={`${conversation.title}${conversation.unreadCount ? `, ${conversation.unreadCount} uleste` : ''}${
+                        onlineIds?.includes(conversation.peerId!) ? ', pålogget' : ''
+                      }`}
                       onPress={() => {
                         if (conversation.peerId == null) return;
                         setTarget({
@@ -141,12 +202,22 @@ export default function ChatScreen() {
                         });
                       }}
                       style={({ pressed }) => [styles.directRow, pressed && styles.pressed]}>
-                      <AvatarBadge
-                        userId={conversation.peerId!}
-                        name={conversation.title}
-                        pictureUrl={conversation.pictureUrl}
-                        size={48}
-                      />
+                      <View style={styles.avatarWithDot}>
+                        <AvatarBadge
+                          userId={conversation.peerId!}
+                          name={conversation.title}
+                          pictureUrl={conversation.pictureUrl}
+                          size={48}
+                        />
+                        {onlineIds?.includes(conversation.peerId!) && (
+                          <View
+                            style={[
+                              styles.onlineDot,
+                              { backgroundColor: theme.success, borderColor: theme.backgroundElement },
+                            ]}
+                          />
+                        )}
+                      </View>
                       <ConversationText conversation={conversation} myId={me?.id} />
                       <ConversationMeta conversation={conversation} />
                     </Pressable>
@@ -204,6 +275,19 @@ function ConversationMeta({ conversation }: { conversation: ChatConversation }) 
 }
 
 const styles = StyleSheet.create({
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
+  },
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,12 +296,31 @@ const styles = StyleSheet.create({
     borderRadius: Radii.card,
     padding: Spacing.three,
   },
-  groupAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  groupTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.one,
+  },
+  allePill: {
+    borderRadius: Radii.chip,
+    paddingHorizontal: Spacing.one + 2,
+    paddingVertical: 1,
+  },
+  allePillText: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  avatarWithDot: {
+    position: 'relative',
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: 1,
+    bottom: 1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
   },
   directCard: {
     borderRadius: Radii.card,

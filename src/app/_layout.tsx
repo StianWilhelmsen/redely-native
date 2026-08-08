@@ -22,6 +22,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import { CollectiveSocketProvider } from '@/lib/collective-socket';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
@@ -168,6 +169,7 @@ function RootNavigator() {
           <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
           <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={needsOnboarding}>
@@ -211,9 +213,11 @@ export default function RootLayout() {
       <PaletteProvider>
         <NavigationTheme>
           <AuthProvider>
-            <AnimatedSplashOverlay />
-            <RootNavigator />
-            <OfflineBanner />
+            <CollectiveSocketProvider>
+              <AnimatedSplashOverlay />
+              <RootNavigator />
+              <OfflineBanner />
+            </CollectiveSocketProvider>
           </AuthProvider>
         </NavigationTheme>
       </PaletteProvider>

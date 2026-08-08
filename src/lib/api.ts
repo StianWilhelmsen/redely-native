@@ -98,8 +98,14 @@ export const api = {
   leaveCollective: () => request<void>('/api/collectives/leave', { method: 'POST' }),
   renameCollective: (name: string) =>
     request<Collective>('/api/collectives', { method: 'PATCH', body: JSON.stringify({ name }) }),
+  updateCollectivePicture: (image: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    form.append('picture', image as unknown as Blob);
+    return request<Collective>('/api/collectives/picture', { method: 'PATCH', body: form });
+  },
   removeMember: (userId: number) =>
     request<void>(`/api/collectives/members/${userId}`, { method: 'DELETE' }),
+  onlineMembers: () => request<number[]>('/api/collectives/online'),
 
   createInvite: () => request<Invite>('/api/invites', { method: 'POST' }),
   joinCollective: (code: string) =>

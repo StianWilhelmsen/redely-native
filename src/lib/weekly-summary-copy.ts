@@ -241,6 +241,19 @@ export function topDayCaption(data: WeeklyStats): string {
   } unnagjort.`;
 }
 
+/** Short form for compact captions elsewhere in the app - "Onsdag var best". */
+export function topDayShortCaption(data: WeeklyStats): string | null {
+  let bestIndex = -1;
+  let best = 0;
+  data.dayCounts.forEach((day, index) => {
+    if (day.count > best) {
+      best = day.count;
+      bestIndex = index;
+    }
+  });
+  return bestIndex < 0 ? null : `${capitalize(WEEKDAYS_NB[bestIndex])} var best`;
+}
+
 /** The message posted to the shared chat from the last pane. */
 export function shareMessage(data: WeeklyStats): string {
   const lines = [

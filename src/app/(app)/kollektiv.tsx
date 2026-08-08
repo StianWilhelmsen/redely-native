@@ -108,25 +108,6 @@ export default function KollektivScreen() {
         <RefreshSpinner active />
       ) : (
         <>
-          <Section title="Ukesoppsummering">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Se ukesoppsummeringen så langt"
-              onPress={() => router.push('/weekly-summary')}
-              style={({ pressed }) => [
-                styles.summaryLink,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.75 : 1 },
-              ]}>
-              <View style={styles.summaryLinkText}>
-                <ThemedText type="smallBold">Se uken så langt</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Poeng, oppgaver og MVP
-                </ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-            </Pressable>
-          </Section>
-
           <View style={[styles.streakCard, { backgroundColor: theme.brand }]}>
             <ThemedText type="eyebrow" themeColor="onBrand" style={styles.streakLabel}>
               Kollektivets streak
@@ -141,6 +122,20 @@ export default function KollektivScreen() {
               på rad uten glemte oppgaver
             </ThemedText>
           </View>
+
+          {/* Secondary entry point — the main one lives on Hjem's ukemål-kort, which is
+              the first thing anyone sees and already shows this week's live number. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Se ukesoppsummeringen"
+            onPress={() => router.push('/weekly-summary')}
+            hitSlop={Spacing.two}
+            style={({ pressed }) => [styles.summaryLink, pressed && styles.summaryLinkPressed]}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Se ukesoppsummeringen
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
+          </Pressable>
 
           <View style={styles.statRow}>
             <View style={[styles.statTile, { backgroundColor: `${theme.success}22` }]}>
@@ -319,17 +314,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   summaryLink: {
-    minHeight: 64,
-    borderRadius: Radii.card,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
     flexDirection: 'row',
+    alignSelf: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
+    gap: 2,
+    paddingVertical: Spacing.one,
   },
-  summaryLinkText: {
-    flex: 1,
+  summaryLinkPressed: {
+    opacity: 0.6,
   },
   weekNav: {
     flexDirection: 'row',

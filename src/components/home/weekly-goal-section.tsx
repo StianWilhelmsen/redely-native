@@ -1,4 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimatedNumber } from '@/components/animated-number';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +12,9 @@ import type { WeeklyStats } from '@/types/api';
  * The collective's shared weekly points target. Deliberately framed as one bar everyone
  * fills together rather than a ranking - points are co-op here, so there's nothing to be
  * gained by inflating your own tasks.
+ *
+ * Doubles as the app's main entry point into the animated weekly story: it's the first
+ * thing anyone sees on Hjem, and already shows the exact live number the story opens on.
  */
 export function WeeklyGoalSection({ stats }: { stats: WeeklyStats }) {
   const theme = useTheme();
@@ -21,14 +26,24 @@ export function WeeklyGoalSection({ stats }: { stats: WeeklyStats }) {
   const reached = remaining === 0;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Se ukesoppsummeringen"
+      onPress={() => router.push('/weekly-summary')}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.85 : 1 },
+      ]}>
       <View style={styles.header}>
         <ThemedText type="eyebrow" themeColor="textSecondary">
           Ukemål sammen
         </ThemedText>
-        <ThemedText type="smallBold" themeColor={reached ? 'success' : 'textSecondary'}>
-          {percent}%
-        </ThemedText>
+        <View style={styles.headerRight}>
+          <ThemedText type="smallBold" themeColor={reached ? 'success' : 'textSecondary'}>
+            {percent}%
+          </ThemedText>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        </View>
       </View>
 
       <View style={styles.amountRow}>
@@ -55,7 +70,7 @@ export function WeeklyGoalSection({ stats }: { stats: WeeklyStats }) {
       <ThemedText type="small" themeColor="textSecondary">
         {reached ? 'Målet er nådd — bra jobba! 🎉' : `${remaining} poeng igjen denne uka`}
       </ThemedText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -64,6 +79,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.card,
     padding: Spacing.four,
     gap: Spacing.two,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   header: {
     flexDirection: 'row',

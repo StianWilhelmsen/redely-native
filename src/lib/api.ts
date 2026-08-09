@@ -2,6 +2,7 @@ import { getValidIdToken } from '@/lib/auth-store';
 import { env } from '@/lib/env';
 import type {
   ActivityEvent,
+  BillingStatus,
   ChatConversation,
   ChatMessage,
   ChatReadState,
@@ -203,4 +204,5 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ messageId, peerId: peerId ?? null }),
     }),
+  billingStatus: () => request<BillingStatus>('/api/billing/status'),
 };

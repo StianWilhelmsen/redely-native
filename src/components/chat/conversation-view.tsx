@@ -282,13 +282,20 @@ export function ConversationView({
   // Resolves each housemate's read cursor to an avatar shown under the newest
   // message they've actually seen - Messenger-style "seen by" receipts. Only
   // resolves against messages currently loaded (last 50), and never for yourself.
+  //
+  // Anchored to *my* messages only. A receipt answers one question - "has the other side
+  // seen what I wrote" - and someone's cursor most often sits on a message they sent
+  // themselves, which would park their avatar under their own bubble saying nothing.
+  // In the group chat that multiplies by every member.
   const readReceiptsByMessageId = useMemo(() => {
     const map = new Map<number, Member[]>();
     if (allMessages.length === 0 || !readStates || !members) return map;
-    const loadedIds = new Set(allMessages.map((m) => m.id));
+    const myLoadedIds = new Set(
+      allMessages.filter((m) => m.senderId === me?.id).map((m) => m.id)
+    );
     for (const state of readStates) {
       if (state.userId === me?.id) continue;
-      if (!loadedIds.has(state.lastReadMessageId)) continue;
+      if (!myLoadedIds.has(state.lastReadMessageId)) continue;
       const member = members.find((m) => m.id === state.userId);
       if (!member) continue;
       const existing = map.get(state.lastReadMessageId) ?? [];
@@ -542,7 +549,7 @@ export function ConversationView({
                   </View>
                 </View>
                 {readers && readers.length > 0 && (
-                  <View style={[styles.readReceiptRow, mine ? styles.readReceiptRowMine : styles.readReceiptRowTheirs]}>
+                  <View style={styles.readReceiptRow}>
                     {readers.map((reader, i) => (
                       <View key={reader.id} style={[styles.readReceiptAvatar, i > 0 && styles.readReceiptAvatarStacked]}>
                         <AvatarBadge
@@ -703,14 +710,9 @@ const styles = StyleSheet.create({
   readReceiptRow: {
     flexDirection: 'row',
     marginTop: 2,
-  },
-  readReceiptRowMine: {
+    // Only ever rendered under my own (right-aligned) bubbles now.
     justifyContent: 'flex-end',
     marginRight: Spacing.two,
-  },
-  readReceiptRowTheirs: {
-    justifyContent: 'flex-start',
-    marginLeft: Spacing.two + 28 + Spacing.two, // clears the sender's avatar slot
   },
   readReceiptAvatar: {
     borderRadius: 8,

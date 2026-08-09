@@ -50,6 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // The scheme above only applies to a real build. Under Expo Go this resolves to
+  // "exp://<lan-ip>:8081/--/callback" instead, which Supabase rejects unless it's in the
+  // redirect allow-list - and the address moves with the network. Printing it beats
+  // guessing at what to paste into the dashboard.
+  useEffect(() => {
+    if (__DEV__) console.log('[auth] OAuth redirect URI:', redirectTo);
+  }, [redirectTo]);
+
   const [session, setSession] = useState<Session | null>(() => getSessionSnapshot());
   const [hasLoaded, setHasLoaded] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);

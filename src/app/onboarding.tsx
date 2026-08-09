@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AvatarBadge } from '@/components/avatar-badge';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
@@ -14,6 +15,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 
 const STEP_COUNT = 3;
+const STEP_LABELS = ['Om deg', 'Profilbilde', 'Vilkår'];
 
 type PickedImage = { uri: string; name: string; type: string };
 
@@ -39,6 +41,23 @@ export default function OnboardingScreen() {
     setStep((s) => s - 1);
   };
 
+  const applyPickedAsset = (asset: ImagePicker.ImagePickerAsset) => {
+    const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';
+    const type = asset.mimeType ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
+    setImage({ uri: asset.uri, name: asset.fileName ?? `profile.${ext}`, type });
+  };
+
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Ingen tilgang', 'Du må gi tilgang til kameraet for å ta et bilde.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (result.canceled || !result.assets?.[0]) return;
+    applyPickedAsset(result.assets[0]);
+  };
+
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -52,11 +71,7 @@ export default function OnboardingScreen() {
       quality: 0.8,
     });
     if (result.canceled || !result.assets?.[0]) return;
-
-    const asset = result.assets[0];
-    const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';
-    const type = asset.mimeType ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
-    setImage({ uri: asset.uri, name: asset.fileName ?? `profile.${ext}`, type });
+    applyPickedAsset(result.assets[0]);
   };
 
   const handleSubmit = async () => {
@@ -104,12 +119,6 @@ export default function OnboardingScreen() {
     handleSubmit();
   };
 
-  const handleSkipPicture = () => {
-    setImage(null);
-    setDirection(1);
-    setStep(2);
-  };
-
   return (
     <View style={[styles.root, { backgroundColor: theme.background, paddingTop: insets.top }]}>
       <View style={styles.navBar}>
@@ -127,6 +136,9 @@ export default function OnboardingScreen() {
             />
           ))}
         </View>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.stepCounter}>
+          {step + 1}/{STEP_COUNT}
+        </ThemedText>
       </View>
 
       <ScrollView
@@ -141,11 +153,14 @@ export default function OnboardingScreen() {
           style={styles.stepBody}>
         {step === 0 && (
           <>
+            <ThemedText type="eyebrow" themeColor="brand" style={styles.stepEyebrow}>
+              Steg 1 · {STEP_LABELS[0]}
+            </ThemedText>
             <ThemedText type="display" style={styles.title}>
               Hvem er du?
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-              Samboerne dine ser dette på profilen din.
+              Samboerne dine ser navnet ditt på oppgaver, poeng og i chatten.
             </ThemedText>
 
             <View style={styles.field}>
@@ -169,17 +184,41 @@ export default function OnboardingScreen() {
               <TextInput
                 value={age}
                 onChangeText={setAge}
-                placeholder="Alder (valgfritt)"
+                placeholder="Valgfritt"
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="number-pad"
                 style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
               />
+            </View>
+
+            {/* Live preview of the initial-badge look, so the name field's real-world
+                effect (what a housemate sees before a photo exists) is visible immediately
+                instead of only after the profile picture step. */}
+            <View style={styles.previewRow}>
+              <AvatarBadge
+                userId={me?.id ?? 0}
+                name={firstName.trim() || me?.name || '?'}
+                pictureUrl={image?.uri}
+                shape="circle"
+                size={48}
+              />
+              <View style={styles.previewText}>
+                <ThemedText type="eyebrow" style={styles.fieldLabel}>
+                  Slik ser du ut for de andre
+                </ThemedText>
+                <ThemedText type="smallBold" numberOfLines={1}>
+                  {firstName.trim() || me?.name || 'Navnet ditt'}
+                </ThemedText>
+              </View>
             </View>
           </>
         )}
 
         {step === 1 && (
           <>
+            <ThemedText type="eyebrow" themeColor="brand" style={styles.stepEyebrow}>
+              Steg 2 · {STEP_LABELS[1]}
+            </ThemedText>
             <ThemedText type="display" style={styles.title}>
               Legg til et bilde
             </ThemedText>
@@ -187,8 +226,7 @@ export default function OnboardingScreen() {
               Gjør det lettere å kjenne deg igjen i kollektivet.
             </ThemedText>
 
-            <Pressable
-              onPress={handlePickImage}
+            <View
               style={[styles.pickerCircle, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
               {image ? (
                 <Image source={{ uri: image.uri }} style={styles.pickedImage} contentFit="cover" />
@@ -200,12 +238,36 @@ export default function OnboardingScreen() {
                   </ThemedText>
                 </>
               )}
-            </Pressable>
+            </View>
+
+            {/* Camera first: matches the chat attachment sheet's ordering (see
+                conversation-view.tsx) - taking a picture right now is the common case,
+                picking one from a library is the exception. */}
+            <View style={styles.pickerChoices}>
+              <Pressable
+                onPress={handleTakePhoto}
+                style={[styles.pickerChip, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="small">Ta bilde</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handlePickImage}
+                style={[styles.pickerChip, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="small">Galleri</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => setImage(null)}
+                style={[styles.pickerChip, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="small">Bruk initial</ThemedText>
+              </Pressable>
+            </View>
           </>
         )}
 
         {step === 2 && (
           <>
+            <ThemedText type="eyebrow" themeColor="brand" style={styles.stepEyebrow}>
+              Steg 3 · {STEP_LABELS[2]}
+            </ThemedText>
             <ThemedText type="display" style={styles.title}>
               Nesten klar
             </ThemedText>
@@ -214,19 +276,37 @@ export default function OnboardingScreen() {
             </ThemedText>
 
             <View style={[styles.termsCard, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">Vilkår for bruk</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.termsBody}>
-                Ved å bli med i Ryddig Kollektiv godtar du at oppgaver, utgifter og aktivitet deles med de
-                andre medlemmene i kollektivet ditt. Du kan når som helst forlate kollektivet fra
-                innstillinger.
-              </ThemedText>
-              <ThemedText type="smallBold" style={styles.termsSectionSpacing}>
-                Personvern
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.termsBody}>
-                Vi lagrer kun det som trengs for å drifte kollektivet — navn, alder, profilbilde og
-                aktivitet. Data deles aldri med tredjeparter.
-              </ThemedText>
+              <View style={styles.termsRow}>
+                <View style={[styles.termsBadge, { backgroundColor: `${theme.brand}1A` }]}>
+                  <ThemedText type="smallBold" themeColor="brand">
+                    01
+                  </ThemedText>
+                </View>
+                <View style={styles.termsRowText}>
+                  <ThemedText type="smallBold">Vilkår for bruk</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.termsBody}>
+                    Oppgaver, utgifter og aktivitet deles med de andre medlemmene. Du kan når som
+                    helst forlate kollektivet fra innstillinger.
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={[styles.termsDivider, { backgroundColor: theme.border }]} />
+
+              <View style={styles.termsRow}>
+                <View style={[styles.termsBadge, { backgroundColor: `${theme.brand}1A` }]}>
+                  <ThemedText type="smallBold" themeColor="brand">
+                    02
+                  </ThemedText>
+                </View>
+                <View style={styles.termsRowText}>
+                  <ThemedText type="smallBold">Personvern</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.termsBody}>
+                    Vi lagrer kun det som trengs for å drifte kollektivet — navn, alder,
+                    profilbilde og aktivitet. Data deles aldri med tredjeparter.
+                  </ThemedText>
+                </View>
+              </View>
             </View>
 
             <Pressable onPress={() => setAcceptedTerms((v) => !v)} style={styles.consentRow} hitSlop={Spacing.one}>
@@ -260,12 +340,13 @@ export default function OnboardingScreen() {
           loading={submitting}
           disabled={step === 2 && !acceptedTerms}
         />
-        {step === 1 && (
-          <Pressable onPress={handleSkipPicture} style={styles.skipButton} hitSlop={Spacing.two}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Hopp over
-            </ThemedText>
-          </Pressable>
+        {/* Only known once an invite has already attached this account to a collective
+            (joining/creating one otherwise happens after onboarding, from the home tab) -
+            so this is silent rather than misleading for everyone else. */}
+        {step === 2 && me?.collective && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Du blir med i {me.collective.name}
+          </ThemedText>
         )}
       </View>
     </View>
@@ -297,6 +378,9 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
+  stepCounter: {
+    fontVariant: ['tabular-nums'],
+  },
   content: {
     padding: Spacing.four,
     gap: Spacing.four,
@@ -305,6 +389,9 @@ const styles = StyleSheet.create({
   // that used to come from `content`'s gap between the step's own elements.
   stepBody: {
     gap: Spacing.four,
+  },
+  stepEyebrow: {
+    marginBottom: -Spacing.two,
   },
   title: {
     fontSize: 30,
@@ -325,6 +412,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     fontSize: 16,
   },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  previewText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   pickerCircle: {
     alignSelf: 'center',
     width: 160,
@@ -344,16 +441,43 @@ const styles = StyleSheet.create({
   pickerText: {
     textAlign: 'center',
   },
+  pickerChoices: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  pickerChip: {
+    borderWidth: 1,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
   termsCard: {
     borderRadius: Radii.card,
     padding: Spacing.four,
-    gap: Spacing.one,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  termsBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: Radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  termsRowText: {
+    flex: 1,
+    gap: 2,
   },
   termsBody: {
     lineHeight: 20,
   },
-  termsSectionSpacing: {
-    marginTop: Spacing.two,
+  termsDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: Spacing.three,
   },
   consentRow: {
     flexDirection: 'row',
@@ -379,8 +503,5 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
     alignItems: 'center',
-  },
-  skipButton: {
-    paddingVertical: Spacing.one,
   },
 });

@@ -13,7 +13,7 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { OfflineBanner } from '@/components/offline-banner';
@@ -22,8 +22,9 @@ import { ThemedView } from '@/components/themed-view';
 import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-import { CollectiveSocketProvider } from '@/lib/collective-socket';
+import { CollectiveSocketProvider, useCollectiveEvent } from '@/lib/collective-socket';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
+import { ensurePurchasesConfigured, syncPurchasesIdentity } from '@/lib/purchases';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
 SplashScreen.preventAutoHideAsync();
@@ -94,7 +95,32 @@ function NavigationTheme({ children }: { children: ReactNode }) {
 function RootNavigator() {
   const { status } = useAuth();
   const { data: me } = useSWR(status === 'signedIn' ? 'me' : null, api.me);
+  const { mutate } = useSWRConfig();
   const meId = me?.id;
+  const collectiveId = me?.collective?.id;
+
+  // Configuring the SDK doesn't depend on being signed in - do it as early as the app
+  // renders anything, same reasoning as RevenueCat's own setup guidance. Identity only
+  // syncs once a collective is known, since that (not the user) is who's billed - see
+  // src/lib/purchases.ts.
+  useEffect(() => {
+    ensurePurchasesConfigured();
+  }, []);
+
+  useEffect(() => {
+    if (!collectiveId) return;
+    syncPurchasesIdentity(collectiveId).catch((error) => {
+      console.warn('Could not sync purchases identity', error);
+    });
+  }, [collectiveId]);
+
+  // Pushed the instant RevenueCatWebhookController finishes processing a purchase -
+  // without this, billing status only caught up whenever something else happened to
+  // revalidate it (reopening the sheet, a poll interval), which read as "nothing updated"
+  // right after a purchase that had, in fact, gone through.
+  useCollectiveEvent('SUBSCRIPTION_UPDATED', () => {
+    mutate('billing-status');
+  });
 
   useEffect(() => {
     if (status !== 'signedIn' || !meId) return;

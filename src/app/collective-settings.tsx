@@ -11,11 +11,29 @@ import { AvatarBadge } from '@/components/avatar-badge';
 import { CollectiveAvatar } from '@/components/collective-avatar';
 import { PrimaryButton } from '@/components/primary-button';
 import { Section, Separator } from '@/components/section';
+import { PaywallSheet } from '@/components/subscription/paywall-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import type { BillingStatus } from '@/types/api';
+
+/** Short summary shown as the "Abonnement" row's value - detail lives in the sheet. */
+function billingSummary(billing?: BillingStatus): string {
+  if (!billing) return '';
+  if (billing.readOnly) return 'Utløpt';
+  switch (billing.status) {
+    case 'TRIALING':
+      return 'Prøveperiode';
+    case 'PAST_DUE':
+      return 'Betalingsproblem';
+    case 'CANCELED':
+      return 'Avsluttes snart';
+    default:
+      return `${billing.pricePerMonthNok} kr/mnd`;
+  }
+}
 
 function Row({ label, value, onPress }: { label: string; value?: string; onPress?: () => void }) {
   const theme = useTheme();
@@ -43,7 +61,9 @@ export default function CollectiveSettingsScreen() {
   const { mutate: globalMutate } = useSWRConfig();
 
   const { data: members, mutate: mutateMembers } = useSWR(me?.collective ? 'members' : null, api.members);
+  const { data: billing } = useSWR(me?.collective ? 'billing-status' : null, api.billingStatus);
   const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const handlePickCollectivePicture = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -277,6 +297,8 @@ export default function CollectiveSettingsScreen() {
                 <Separator />
                 <Row label="Startpakke" value="Bytt pakke" onPress={() => router.push('/starter-pack')} />
                 <Separator />
+                <Row label="Abonnement" value={billingSummary(billing)} onPress={() => setPaywallVisible(true)} />
+                <Separator />
                 <Pressable disabled={leaving} onPress={handleLeaveCollective} style={styles.row}>
                   <ThemedText type="small" themeColor="danger">
                     {leaving ? 'Forlater…' : 'Forlat kollektiv'}
@@ -332,6 +354,8 @@ export default function CollectiveSettingsScreen() {
           </Section>
         )}
       </ScrollView>
+
+      <PaywallSheet visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </View>
   );
 }

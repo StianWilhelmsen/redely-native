@@ -283,3 +283,19 @@ export type ChatConversation = {
   lastMessage: ChatMessage | null;
   unreadCount: number;
 };
+
+// Mirrors wilhelmsen.project.model.Subscription.Status exactly.
+export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'READ_ONLY' | 'CANCELED';
+
+/** Mirrors BillingStatusDto. `trialEndsAt`/`currentPeriodEnd` are ISO instants. */
+export type BillingStatus = {
+  status: SubscriptionStatus;
+  readOnly: boolean;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  memberCount: number;
+  maxMembers: number;
+  pricePerMonthNok: number;
+  pricePerPersonNok: number;
+  isPayer: boolean;
+};

@@ -30,6 +30,8 @@ export default function SignInScreen() {
   const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | 'password' | null>(
     null
   );
+  /** Non-error feedback - currently only "we sent you a confirmation mail". */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setPendingProvider(provider);
@@ -43,10 +45,22 @@ export default function SignInScreen() {
   const handlePasswordSubmit = async () => {
     if (!email || !password) return;
     setPendingProvider('password');
+    setNotice(null);
     try {
-      await (mode === 'signIn'
-        ? signInWithPassword(email, password)
-        : signUpWithPassword(email, password));
+      if (mode === 'signIn') {
+        await signInWithPassword(email, password);
+      } else {
+        const { needsEmailConfirmation } = await signUpWithPassword(email, password);
+        // A successful sign-up that needs confirmation changes nothing on screen - no
+        // session, no error, no navigation - so without this the button looks broken.
+        if (needsEmailConfirmation) {
+          setNotice(
+            `Vi har sendt en bekreftelseslenke til ${email}. Åpne den for å fullføre, og logg deretter inn.`
+          );
+          setMode('signIn');
+          setPassword('');
+        }
+      }
     } catch {
       // signInError is already set by the context - nothing else to do here.
     } finally {
@@ -82,6 +96,12 @@ export default function SignInScreen() {
         {signInError && (
           <ThemedText type="small" themeColor="danger" style={styles.error}>
             {signInError}
+          </ThemedText>
+        )}
+
+        {notice && !signInError && (
+          <ThemedText type="small" themeColor="brand" style={styles.error}>
+            {notice}
           </ThemedText>
         )}
 

@@ -36,7 +36,10 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (
+    email: string,
+    password: string
+  ) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
 };
 
@@ -115,11 +118,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithPassword = useCallback(async (email: string, password: string) => {
     setSignInError(null);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setSignInError(error.message);
       throw error;
     }
+    // With email confirmation enabled (Supabase's default), signUp succeeds and sends a
+    // mail but returns no session - so nothing observable happens: no error, no sign-in,
+    // the button just spins and stops. The caller has to say "check your inbox", which it
+    // can only do if it's told. Returning the flag rather than reading the project setting
+    // keeps this correct whichever way confirmation is configured.
+    return { needsEmailConfirmation: !data.session };
   }, []);
 
   const signOut = useCallback(async () => {

@@ -31,6 +31,24 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Call sites show `err.message` straight to the user, so a structured error body has to be
+ * unwrapped here or the raw JSON ends up in an alert. The backend sends
+ * `{"error": "...", "message": "..."}` for the cases it explains in Norwegian - notably
+ * ReadOnlySubscriptionInterceptor's 402 when a collective's subscription has lapsed - and
+ * Spring's own errors carry a `message` too. Anything unparseable falls back to the raw
+ * text, which is still better than nothing for debugging.
+ */
+function errorMessageFrom(body: string): string {
+  if (!body) return '';
+  try {
+    const parsed = JSON.parse(body) as { message?: unknown };
+    return typeof parsed.message === 'string' && parsed.message ? parsed.message : body;
+  } catch {
+    return body;
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const idToken = await getValidIdToken();
   const isFormData = init.body instanceof FormData;
@@ -46,7 +64,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new ApiError(res.status, text || `Request failed: ${res.status}`);
+    throw new ApiError(res.status, errorMessageFrom(text) || `Request failed: ${res.status}`);
   }
 
   if (res.status === 204) return undefined as T;

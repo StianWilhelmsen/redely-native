@@ -17,7 +17,9 @@ import useSWR, { useSWRConfig } from 'swr';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { OfflineBanner } from '@/components/offline-banner';
+import { PrimaryButton } from '@/components/primary-button';
 import { RefreshSpinner } from '@/components/refresh-spinner';
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
@@ -94,7 +96,12 @@ function NavigationTheme({ children }: { children: ReactNode }) {
 
 function RootNavigator() {
   const { status } = useAuth();
-  const { data: me } = useSWR(status === 'signedIn' ? 'me' : null, api.me);
+  const {
+    data: me,
+    error: meError,
+    isValidating: isValidatingMe,
+    mutate: mutateMe,
+  } = useSWR(status === 'signedIn' ? 'me' : null, api.me);
   const { mutate } = useSWRConfig();
   const meId = me?.id;
   const collectiveId = me?.collective?.id;
@@ -164,7 +171,32 @@ function RootNavigator() {
     return () => subscription.remove();
   }, [status, meId]);
 
-  const stillResolvingProfile = status === 'signedIn' && !me;
+  // A failed /api/me is not the same as a slow one, and this screen used to render both
+  // as an identical spinner that never resolved - the backend being asleep (Render's free
+  // tier spins down) or unreachable looked exactly like the app hanging on launch, with no
+  // way out but force-quitting. SWR keeps `data` undefined on a first-load error, so the
+  // error has to be checked explicitly rather than inferred from the absence of data.
+  const profileFailed = status === 'signedIn' && !me && !!meError;
+  const stillResolvingProfile = status === 'signedIn' && !me && !meError;
+
+  if (profileFailed) {
+    return (
+      <ThemedView style={styles.loading}>
+        <Image
+          source={require('@/assets/images/android-icon-foreground.png')}
+          style={styles.loadingMark}
+          contentFit="contain"
+        />
+        <ThemedText type="heading" style={styles.loadingText}>
+          Får ikke kontakt
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.loadingText}>
+          Sjekk at du er på nett og prøv igjen.
+        </ThemedText>
+        <PrimaryButton label="Prøv igjen" onPress={() => mutateMe()} loading={isValidatingMe} />
+      </ThemedView>
+    );
+  }
 
   if (status === 'loading' || stillResolvingProfile) {
     return (
@@ -258,10 +290,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
+    paddingHorizontal: 32,
   },
   loadingMark: {
     width: 72,
     height: 72,
+  },
+  loadingText: {
+    textAlign: 'center',
   },
 });
 

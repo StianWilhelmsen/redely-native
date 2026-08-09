@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
@@ -9,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarBadge } from '@/components/avatar-badge';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
+import { PRIVACY_ROUTE, TERMS_ROUTE } from '@/constants/legal';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
@@ -318,8 +320,18 @@ export default function OnboardingScreen() {
                 ]}>
                 {acceptedTerms && <Ionicons name="checkmark" size={14} color={theme.onBrand} />}
               </View>
+              {/* The two documents are linked individually rather than the whole sentence
+                  being one tap target - agreeing and reading are different intents, and
+                  tapping "vilkårene" to read them shouldn't silently tick the box. */}
               <ThemedText type="small" style={styles.consentText}>
-                Jeg godtar vilkårene og personvernerklæringen
+                Jeg godtar{' '}
+                <ThemedText type="small" themeColor="brand" onPress={() => router.push(TERMS_ROUTE)}>
+                  vilkårene
+                </ThemedText>{' '}
+                og{' '}
+                <ThemedText type="small" themeColor="brand" onPress={() => router.push(PRIVACY_ROUTE)}>
+                  personvernerklæringen
+                </ThemedText>
               </ThemedText>
             </Pressable>
           </>

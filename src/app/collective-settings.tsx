@@ -13,13 +13,16 @@ import { PrimaryButton } from '@/components/primary-button';
 import { Section, Separator } from '@/components/section';
 import { PaywallSheet } from '@/components/subscription/paywall-sheet';
 import { ThemedText } from '@/components/themed-text';
+import { planForMemberLimit } from '@/constants/plans';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import type { BillingStatus } from '@/types/api';
 
-/** Short summary shown as the "Abonnement" row's value - detail lives in the sheet. */
+/** Short summary shown as the "Abonnement" row's value - detail lives in the sheet.
+ *  Names the plan rather than quoting a price: once you're paying, what you have is more
+ *  useful at a glance than what it costs, and the price is one tap away in the sheet. */
 function billingSummary(billing?: BillingStatus): string {
   if (!billing) return '';
   if (billing.readOnly) return 'Utløpt';
@@ -31,7 +34,7 @@ function billingSummary(billing?: BillingStatus): string {
     case 'CANCELED':
       return 'Avsluttes snart';
     default:
-      return `${billing.pricePerMonthNok} kr/mnd`;
+      return planForMemberLimit(billing.maxMembers).name;
   }
 }
 

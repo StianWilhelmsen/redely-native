@@ -196,6 +196,7 @@ function RootNavigator() {
           <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
           <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
           <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={needsOnboarding}>

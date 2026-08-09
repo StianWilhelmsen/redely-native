@@ -8,6 +8,7 @@ import { PaletteSwitcher } from '@/components/palette-switcher';
 import { PrimaryButton } from '@/components/primary-button';
 import { Section, Separator } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
+import { PRIVACY_ROUTE, TERMS_ROUTE } from '@/constants/legal';
 import { Radii, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useMe } from '@/hooks/use-me';
@@ -174,6 +175,13 @@ export default function SettingsScreen() {
 
         <Section title="Om">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+            {/* Guideline 5.1.1(i) wants the privacy policy reachable "within the app in an
+                easily accessible manner" - behind the paywall isn't that, since someone who
+                never opens it would never find it. */}
+            <Row label="Vilkår for bruk" onPress={() => router.push(TERMS_ROUTE)} />
+            <Separator />
+            <Row label="Personvernerklæring" onPress={() => router.push(PRIVACY_ROUTE)} />
+            <Separator />
             <Row label="Versjon" value="1.0.0" />
           </View>
         </Section>

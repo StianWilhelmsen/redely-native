@@ -18,15 +18,11 @@ export const PRIVACY_ROUTE = {
 } as const;
 
 /**
- * !!! STILL REQUIRED, STILL MISSING. !!!
- *
  * Separate from the in-app screens above: guideline 5.1.1(i) requires a privacy policy
- * link "in the App Store Connect metadata field" AS WELL AS within the app, and App Store
- * Connect will not accept a submission without that URL. An in-app screen cannot be
- * entered into that field.
- *
- * The text to publish is PRIVACY_DOCUMENT in legal-content.ts - it only needs to be
- * hosted somewhere publicly reachable (GitHub Pages, a Notion public page, any static
- * host) and the URL pasted into App Store Connect.
+ * link "in the App Store Connect metadata field" AS WELL AS within the app, and 3.1.2(c)
+ * wants a functional Terms of Use (EULA) link in the App Description (or the EULA field).
+ * These hosted pages (the redely-support repo, published via GitHub Pages) are what goes
+ * into those App Store Connect fields - an in-app screen cannot be entered there.
  */
-export const HOSTED_PRIVACY_URL_TODO = null;
+export const HOSTED_PRIVACY_URL = 'https://stianwilhelmsen.github.io/redely-support/personvern.html';
+export const HOSTED_TERMS_URL = 'https://stianwilhelmsen.github.io/redely-support/vilkar.html';

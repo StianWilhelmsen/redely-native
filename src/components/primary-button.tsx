@@ -11,9 +11,18 @@ type Props = {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
+  /** 'large' is the full-width call to action at the end of a form. */
+  size?: 'medium' | 'large';
 };
 
-export function PrimaryButton({ label, onPress, loading, disabled, variant = 'primary' }: Props) {
+export function PrimaryButton({
+  label,
+  onPress,
+  loading,
+  disabled,
+  variant = 'primary',
+  size = 'medium',
+}: Props) {
   const theme = useTheme();
 
   const backgroundColor =
@@ -35,6 +44,7 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
       }}
       style={({ pressed }) => [
         styles.button,
+        size === 'large' && styles.buttonLarge,
         { backgroundColor },
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
@@ -42,7 +52,7 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <ThemedText type="smallBold" style={{ color: textColor }}>
+        <ThemedText type={size === 'large' ? 'heading' : 'smallBold'} style={{ color: textColor }}>
           {label}
         </ThemedText>
       )}
@@ -57,6 +67,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonLarge: {
+    paddingVertical: Spacing.three,
+    borderRadius: 26,
   },
   pressed: {
     opacity: 0.85,

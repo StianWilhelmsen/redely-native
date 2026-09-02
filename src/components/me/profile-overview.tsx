@@ -34,8 +34,63 @@ type Props = {
   highlight: string | null;
 };
 
+type ProfileIdentityProps = Pick<
+  Props,
+  'me' | 'memberCount' | 'onEditPicture' | 'uploadingPicture' | 'onSettingsPress'
+>;
+
 function formatKr(amount: number): string {
   return `${Math.round(amount)} kr`;
+}
+
+/** The account header is useful even before the user belongs to a collective. */
+export function ProfileIdentity({
+  me,
+  memberCount,
+  onEditPicture,
+  uploadingPicture,
+  onSettingsPress,
+}: ProfileIdentityProps) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.identityRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Endre profilbilde"
+        onPress={onEditPicture}
+        disabled={uploadingPicture}
+        style={styles.avatarWrap}>
+        <AvatarBadge userId={me.id} name={me.name} pictureUrl={me.pictureUrl} shape="circle" size={56} />
+        <View style={[styles.avatarEditBadge, { backgroundColor: theme.brand, borderColor: theme.background }]}>
+          {uploadingPicture ? (
+            <ActivityIndicator size="small" color={theme.onBrand} />
+          ) : (
+            <Ionicons name="camera" size={10} color={theme.onBrand} />
+          )}
+        </View>
+      </Pressable>
+
+      <View style={styles.identityText}>
+        <ThemedText type="heading" numberOfLines={1}>
+          {me.name}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          {me.collective
+            ? `${me.collective.name} · ${memberCount} medlem${memberCount === 1 ? '' : 'mer'}`
+            : me.email}
+        </ThemedText>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Innstillinger"
+        onPress={onSettingsPress}
+        hitSlop={Spacing.two}>
+        <Ionicons name="settings-outline" size={20} color={theme.textSecondary} />
+      </Pressable>
+    </View>
+  );
 }
 
 /** Identity, level progress and this week's headline stats - one flowing unit, no card
@@ -65,42 +120,13 @@ export function ProfileOverview({
 
   return (
     <View style={styles.root}>
-      <View style={styles.identityRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Endre profilbilde"
-          onPress={onEditPicture}
-          disabled={uploadingPicture}
-          style={styles.avatarWrap}>
-          <AvatarBadge userId={me.id} name={me.name} pictureUrl={me.pictureUrl} shape="circle" size={56} />
-          <View style={[styles.avatarEditBadge, { backgroundColor: theme.brand, borderColor: theme.background }]}>
-            {uploadingPicture ? (
-              <ActivityIndicator size="small" color={theme.onBrand} />
-            ) : (
-              <Ionicons name="camera" size={10} color={theme.onBrand} />
-            )}
-          </View>
-        </Pressable>
-
-        <View style={styles.identityText}>
-          <ThemedText type="heading" numberOfLines={1}>
-            {me.name}
-          </ThemedText>
-          {me.collective && (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {me.collective.name} · {memberCount} medlem{memberCount === 1 ? '' : 'mer'}
-            </ThemedText>
-          )}
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Innstillinger"
-          onPress={onSettingsPress}
-          hitSlop={Spacing.two}>
-          <Ionicons name="settings-outline" size={20} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      <ProfileIdentity
+        me={me}
+        memberCount={memberCount}
+        onEditPicture={onEditPicture}
+        uploadingPicture={uploadingPicture}
+        onSettingsPress={onSettingsPress}
+      />
 
       {totalOwed > 0 && (
         <Pressable

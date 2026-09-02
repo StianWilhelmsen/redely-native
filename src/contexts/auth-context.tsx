@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
@@ -20,6 +21,7 @@ import {
   type AuthUser,
 } from '@/lib/auth-store';
 import { clearPushToken } from '@/lib/push-notifications';
+import { rememberProviderName } from '@/lib/provider-profile';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
@@ -105,7 +107,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithGoogle = useCallback(() => signInWithOAuth('google'), [signInWithOAuth]);
-  const signInWithApple = useCallback(() => signInWithOAuth('apple'), [signInWithOAuth]);
+
+  /**
+   * Native Sign in with Apple (AuthenticationServices), not the web redirect the other
+   * providers use. App Review guideline 4 requires it: the native sheet is what hands back
+   * the user's name and email, and an app that has them must not go on to ask for them.
+   *
+   * Falls back to the web flow only where the native API isn't offered at all (Android,
+   * pre-iOS-13), which is also the only place the Apple button is hidden anyway.
+   */
+  const signInWithApple = useCallback(async () => {
+    // Throws rather than returning false when the native module isn't in the binary at
+    // all - the state a dev build predating this dependency is in. Both answers mean the
+    // same thing here, so both fall back to the web flow instead of dead-ending.
+    const nativeAvailable = await AppleAuthentication.isAvailableAsync().catch(() => false);
+    if (!nativeAvailable) {
+      if (__DEV__) console.log('[auth] Native Sign in with Apple unavailable - using web flow');
+      return signInWithOAuth('apple');
+    }
+
+    setSignInError(null);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) throw new Error('Ingen identitetstoken fra Apple');
+
+      // Only present on the first-ever authorization for this Apple ID - stash it before
+      // anything can fail, see src/lib/provider-profile.ts.
+      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter((part): part is string => !!part?.trim())
+        .join(' ');
+      if (fullName) await rememberProviderName(fullName);
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) throw error;
+
+      // Carry the name onto the Supabase user so later sign-ins - when Apple returns
+      // nothing but the user id - still know who this is. refreshSession() re-mints the
+      // access token, since the backend reads user_metadata off the JWT's claims and the
+      // token issued a moment ago predates this write. Best-effort: onboarding prefills
+      // from the stash above regardless.
+      if (fullName) {
+        try {
+          await supabase.auth.updateUser({ data: { full_name: fullName } });
+          await supabase.auth.refreshSession();
+        } catch (err) {
+          console.warn('Could not persist Apple name to user metadata', err);
+        }
+      }
+    } catch (err) {
+      // Dismissing the Apple sheet is a normal outcome, not a failure to report.
+      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') return;
+      console.warn('apple sign-in failed', err);
+      setSignInError(err instanceof Error ? err.message : 'Innlogging feilet');
+    }
+  }, [signInWithOAuth]);
 
   const signInWithPassword = useCallback(async (email: string, password: string) => {
     setSignInError(null);

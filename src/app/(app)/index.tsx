@@ -204,6 +204,7 @@ export default function HomeScreen() {
       <ScreenScroll
         eyebrow="Velkommen"
         title={`Hei, ${me.name.split(' ')[0]}`}
+        subtitle="Du mangler bare ett steg — et kollektiv å dele hverdagen med."
         refreshing={refreshing}
         onRefresh={handleRefresh}>
         <OnboardingSection onDone={() => mutateMe()} />

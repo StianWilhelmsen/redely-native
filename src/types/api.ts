@@ -25,6 +25,7 @@ export type Me = {
   notifyTasks: boolean;
   notifyActivity: boolean;
   notifyExpenses: boolean;
+  notifyChat: boolean;
   collective: Collective | null;
 };
 
@@ -192,6 +193,8 @@ export type Invite = {
   id: number;
   code: string;
   createdAt: string;
+  /** Codes stop working after this instant; a new createInvite call mints a fresh one. */
+  expiresAt: string | null;
 };
 
 export type DayCount = {

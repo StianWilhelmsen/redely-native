@@ -109,6 +109,7 @@ export default function CollectiveSettingsScreen() {
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [promotingId, setPromotingId] = useState<number | null>(null);
 
   const startEditingCollectiveName = () => {
     setCollectiveName(me?.collective?.name ?? '');
@@ -136,24 +137,55 @@ export default function CollectiveSettingsScreen() {
   };
 
   const handleRemoveMember = (memberId: number, memberName: string) => {
-    Alert.alert('Fjern medlem', `Vil du fjerne ${memberName} fra kollektivet?`, [
-      { text: 'Avbryt', style: 'cancel' },
-      {
-        text: 'Fjern',
-        style: 'destructive',
-        onPress: async () => {
-          setRemovingId(memberId);
-          try {
-            await api.removeMember(memberId);
-            await mutateMembers();
-          } catch (err) {
-            Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Prøv igjen senere.');
-          } finally {
-            setRemovingId(null);
-          }
+    Alert.alert(
+      'Fjern medlem',
+      `Vil du fjerne ${memberName} fra kollektivet? Invitasjonskoden byttes samtidig ut, siden ${memberName.split(' ')[0]} kjenner den gamle.`,
+      [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Fjern',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingId(memberId);
+            try {
+              await api.removeMember(memberId);
+              // The backend rotated the invite when the member was removed - drop the
+              // stale code from view so nobody copies a dead one.
+              setInviteCode(null);
+              await mutateMembers();
+            } catch (err) {
+              Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Prøv igjen senere.');
+            } finally {
+              setRemovingId(null);
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
+  };
+
+  const handleMakeAdmin = (memberId: number, memberName: string) => {
+    Alert.alert(
+      'Gi admin-rolle',
+      `${memberName} vil kunne endre kollektivets navn og bilde, fjerne medlemmer og gi andre admin-rollen.`,
+      [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Gi admin',
+          onPress: async () => {
+            setPromotingId(memberId);
+            try {
+              await api.makeMemberAdmin(memberId);
+              await mutateMembers();
+            } catch (err) {
+              Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Prøv igjen senere.');
+            } finally {
+              setPromotingId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleGetInvite = async () => {
@@ -297,6 +329,11 @@ export default function CollectiveSettingsScreen() {
                     </Pressable>
                   )}
                 </View>
+                {inviteCode && (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.inviteHint}>
+                    Koden er gyldig i 7 dager.
+                  </ThemedText>
+                )}
                 <Separator />
                 <Row label="Startpakke" value="Bytt pakke" onPress={() => router.push('/starter-pack')} />
                 <Separator />
@@ -340,6 +377,16 @@ export default function CollectiveSettingsScreen() {
                         </ThemedText>
                       )}
                     </View>
+                    {me.admin && member.id !== me.id && !member.admin && (
+                      <Pressable
+                        disabled={promotingId === member.id}
+                        onPress={() => handleMakeAdmin(member.id, member.name)}
+                        hitSlop={Spacing.two}>
+                        <ThemedText type="small" themeColor="brand">
+                          {promotingId === member.id ? 'Gir admin…' : 'Gi admin'}
+                        </ThemedText>
+                      </Pressable>
+                    )}
                     {me.admin && member.id !== me.id && (
                       <Pressable
                         disabled={removingId === member.id}
@@ -452,6 +499,9 @@ const styles = StyleSheet.create({
   },
   inviteCode: {
     letterSpacing: 2,
+  },
+  inviteHint: {
+    paddingBottom: Spacing.two,
   },
   emptyRow: {
     paddingVertical: Spacing.three,

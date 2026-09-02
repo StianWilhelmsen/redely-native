@@ -106,6 +106,12 @@ function RootNavigator() {
   const meId = me?.id;
   const collectiveId = me?.collective?.id;
 
+  // Warm the two screens that otherwise have no reason to fetch until their tab opens.
+  // SWR shares these cache keys with Meg and Handleliste, so opening either screen can
+  // render immediately while any later background refresh happens invisibly.
+  useSWR(collectiveId ? 'my-stats' : null, api.myStats);
+  useSWR(collectiveId ? 'shopping-items' : null, api.shoppingItems);
+
   // Configuring the SDK doesn't depend on being signed in - do it as early as the app
   // renders anything, same reasoning as RevenueCat's own setup guidance. Identity only
   // syncs once a collective is known, since that (not the user) is who's billed - see
@@ -219,16 +225,19 @@ function RootNavigator() {
         <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
-          <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
-          {/* Full screen, not a sheet: the weekly story is edge-to-edge and paints its
-              own background all the way into the safe areas. */}
-          <Stack.Screen name="weekly-summary" options={{ presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
           <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+
+          <Stack.Protected guard={!!collectiveId}>
+            <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
+            {/* Full screen, not a sheet: the weekly story is edge-to-edge and paints its
+                own background all the way into the safe areas. */}
+            <Stack.Screen name="weekly-summary" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
+          </Stack.Protected>
         </Stack.Protected>
 
         <Stack.Protected guard={needsOnboarding}>
@@ -239,7 +248,9 @@ function RootNavigator() {
           <Stack.Screen name="sign-in" />
         </Stack.Protected>
       </Stack>
-      {status === 'signedIn' && !needsOnboarding && meId ? <WeeklySummaryGate userId={meId} /> : null}
+      {status === 'signedIn' && !needsOnboarding && meId && collectiveId ? (
+        <WeeklySummaryGate userId={meId} />
+      ) : null}
     </>
   );
 }

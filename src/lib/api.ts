@@ -49,11 +49,47 @@ function errorMessageFrom(body: string): string {
   }
 }
 
+const GET_RETRY_DELAYS_MS = [700, 1800];
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Read requests are safe to repeat. A sleeping backend or a brief network transition can
+ * otherwise turn one failed request into a full-screen error even though the next attempt
+ * would work. Mutations are deliberately never retried because repeating a write could
+ * create duplicates.
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const canRetry = method === 'GET' || method === 'HEAD';
+  const attempts = canRetry ? GET_RETRY_DELAYS_MS.length + 1 : 1;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      const hasAnotherAttempt = attempt < attempts - 1;
+      if (!hasAnotherAttempt || !isRetryableStatus(response.status)) return response;
+    } catch (error) {
+      if (attempt === attempts - 1) throw error;
+    }
+
+    await wait(GET_RETRY_DELAYS_MS[attempt]);
+  }
+
+  throw new Error('Kunne ikke koble til serveren.');
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const idToken = await getValidIdToken();
   const isFormData = init.body instanceof FormData;
 
-  const res = await fetch(`${env.apiUrl}${path}`, {
+  const res = await fetchWithRetry(`${env.apiUrl}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${idToken}`,
@@ -108,6 +144,7 @@ export const api = {
     notifyTasks: boolean;
     notifyActivity: boolean;
     notifyExpenses: boolean;
+    notifyChat: boolean;
   }) =>
     request<Me>('/api/me/notification-preferences', { method: 'PATCH', body: JSON.stringify(prefs) }),
   sendTestNotification: () => request<void>('/api/me/test-notification', { method: 'POST' }),
@@ -124,6 +161,8 @@ export const api = {
   },
   removeMember: (userId: number) =>
     request<void>(`/api/collectives/members/${userId}`, { method: 'DELETE' }),
+  makeMemberAdmin: (userId: number) =>
+    request<void>(`/api/collectives/members/${userId}/admin`, { method: 'PATCH' }),
   onlineMembers: () => request<number[]>('/api/collectives/online'),
 
   createInvite: () => request<Invite>('/api/invites', { method: 'POST' }),
@@ -187,6 +226,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ amount, description, paidByUserId, participantUserIds }),
     }),
+  deleteExpense: (id: number) => request<void>(`/api/expenses/${id}`, { method: 'DELETE' }),
   myUnpaidShares: () => request<ExpenseShare[]>('/api/expenses/my-unpaid'),
   markSharePaid: (shareId: number) =>
     request<ExpenseShare>(`/api/expenses/shares/${shareId}/paid`, { method: 'POST' }),

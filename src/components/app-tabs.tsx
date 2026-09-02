@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { usePathname } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { Tabs, TabList, TabSlot, TabTrigger, type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
@@ -9,15 +9,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
+import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { useUnreadChat, useUnreadPayments } from '@/hooks/use-unread';
 
-const TABS: {
+type AppTab = {
   name: string;
   href: '/' | '/shopping' | '/chat' | '/kollektiv' | '/me';
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-}[] = [
+};
+
+const TABS: AppTab[] = [
   { name: 'home', href: '/', label: 'Hjem', icon: 'home-outline' },
   { name: 'shopping', href: '/shopping', label: 'Handleliste', icon: 'cart-outline' },
   { name: 'chat', href: '/chat', label: 'Chat', icon: 'chatbubble-outline' },
@@ -25,17 +28,29 @@ const TABS: {
   { name: 'me', href: '/me', label: 'Meg', icon: 'person-outline' },
 ];
 
-function activeIndexForPath(pathname: string): number {
-  if (pathname.startsWith('/shopping')) return 1;
-  if (pathname.startsWith('/chat')) return 2;
-  if (pathname.startsWith('/kollektiv')) return 3;
-  if (pathname.startsWith('/me')) return 4;
-  return 0;
+const COLLECTIVE_ONLY_PATHS = ['/shopping', '/chat', '/kollektiv'];
+
+function activeIndexForPath(pathname: string, tabs: AppTab[]): number {
+  const index = tabs.findIndex((tab) => tab.href !== '/' && pathname.startsWith(tab.href));
+  return index >= 0 ? index : 0;
 }
 
 export default function AppTabs() {
+  const pathname = usePathname();
+  const { data: me } = useMe();
   const { unreadCount: chatUnread } = useUnreadChat();
   const { unreadCount: paymentsUnread } = useUnreadPayments();
+  const hasCollective = !!me?.collective;
+  const tabs = hasCollective ? TABS : TABS.filter((tab) => tab.name === 'home' || tab.name === 'me');
+
+  // Removing the triggers keeps the collective features out of the tab bar. This second
+  // guard handles restored navigation state and deep links after the profile resolves.
+  useEffect(() => {
+    if (!me || hasCollective) return;
+    if (COLLECTIVE_ONLY_PATHS.some((path) => pathname.startsWith(path))) {
+      router.replace('/');
+    }
+  }, [hasCollective, me, pathname]);
 
   // Persists outside the app too (app icon), unlike an in-app-only dot - this is
   // the only place these notifications leave a trace once the push itself is gone.
@@ -68,8 +83,8 @@ export default function AppTabs() {
     <Tabs>
       <TabSlot />
       <TabList asChild>
-        <TabBar>
-          {TABS.map((tab) => (
+        <TabBar tabs={tabs}>
+          {tabs.map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
               <TabButton icon={tab.icon} showDot={!!showDot[tab.name]}>
                 {tab.label}
@@ -113,14 +128,14 @@ function TabButton({
 const INDICATOR_INSET = Spacing.one;
 const TAB_HEIGHT = 44;
 
-function TabBar(props: TabListProps) {
+function TabBar({ tabs, ...props }: TabListProps & { tabs: AppTab[] }) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const pathname = usePathname();
-  const activeIndex = activeIndexForPath(pathname);
+  const activeIndex = activeIndexForPath(pathname, tabs);
 
   const [barWidth, setBarWidth] = useState(0);
-  const tabWidth = barWidth / TABS.length;
+  const tabWidth = barWidth / tabs.length;
   const translateX = useSharedValue(0);
 
   const handleLayout = (e: LayoutChangeEvent) => {

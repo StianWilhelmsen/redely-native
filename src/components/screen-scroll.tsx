@@ -15,6 +15,8 @@ type Props = ScrollViewProps & {
   eyebrow?: string;
   /** Screen title. */
   title?: string;
+  /** Supporting line under the title. */
+  subtitle?: string;
   /** Rendered to the right of the title (e.g. an avatar or a settings icon). */
   headerRight?: ReactNode;
   /** Extra content below the title (segmented control, search pill, highlight card). */
@@ -33,6 +35,7 @@ export function ScreenScroll({
   onRefresh,
   eyebrow,
   title,
+  subtitle,
   headerRight,
   headerExtra,
   ...rest
@@ -47,6 +50,9 @@ export function ScreenScroll({
       style={[styles.scrollView, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.contentContainer}
       automaticallyAdjustKeyboardInsets
+      // Without this, the first tap on a button while the keyboard is open is
+      // swallowed by the dismiss gesture instead of hitting the button.
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -76,6 +82,11 @@ export function ScreenScroll({
                   </ThemedText>
                 )}
                 {title && <ThemedText type="display">{title}</ThemedText>}
+                {subtitle && (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+                    {subtitle}
+                  </ThemedText>
+                )}
               </View>
               {headerRight ?? (
                 <Image
@@ -125,5 +136,9 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     gap: 2,
+  },
+  subtitle: {
+    marginTop: Spacing.one,
+    maxWidth: 320,
   },
 });

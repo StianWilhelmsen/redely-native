@@ -87,7 +87,10 @@ export default function NotificationSettingsScreen() {
     }
   };
 
-  const updatePreference = async (key: 'notifyTasks' | 'notifyActivity' | 'notifyExpenses', value: boolean) => {
+  const updatePreference = async (
+    key: 'notifyTasks' | 'notifyActivity' | 'notifyExpenses' | 'notifyChat',
+    value: boolean
+  ) => {
     if (!me) return;
     setSaving(key);
     try {
@@ -95,6 +98,7 @@ export default function NotificationSettingsScreen() {
         notifyTasks: key === 'notifyTasks' ? value : me.notifyTasks,
         notifyActivity: key === 'notifyActivity' ? value : me.notifyActivity,
         notifyExpenses: key === 'notifyExpenses' ? value : me.notifyExpenses,
+        notifyChat: key === 'notifyChat' ? value : me.notifyChat,
       });
       await mutateMe();
     } finally {
@@ -135,7 +139,7 @@ export default function NotificationSettingsScreen() {
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="small" themeColor="textSecondary" style={styles.osBody}>
                 {osStatus === 'denied'
-                  ? 'Varslinger er avslått for Ryddig Kollektiv i systeminnstillingene. Aktiver dem der for å motta varsler.'
+                  ? 'Varslinger er avslått for Redely i systeminnstillingene. Aktiver dem der for å motta varsler.'
                   : 'Du må gi tillatelse for at appen skal kunne sende deg varsler.'}
               </ThemedText>
               <Pressable
@@ -162,6 +166,14 @@ export default function NotificationSettingsScreen() {
               value={me?.notifyTasks ?? true}
               onChange={(v) => updatePreference('notifyTasks', v)}
               disabled={!osEnabled || saving === 'notifyTasks'}
+            />
+            <Separator />
+            <Row
+              label="Meldinger"
+              description="Nye meldinger i felleschatten og direktemeldinger"
+              value={me?.notifyChat ?? true}
+              onChange={(v) => updatePreference('notifyChat', v)}
+              disabled={!osEnabled || saving === 'notifyChat'}
             />
             <Separator />
             <Row

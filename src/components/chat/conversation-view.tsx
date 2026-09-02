@@ -431,7 +431,7 @@ export function ConversationView({
         </View>
       </View>
 
-      {error ? (
+      {error && !messages ? (
         <ErrorState message="Klarte ikke å hente meldinger." onRetry={() => mutate()} />
       ) : !messages ? (
         <View style={styles.loading}>

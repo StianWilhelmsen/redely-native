@@ -128,13 +128,13 @@ export default function ChatScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Søk i meldinger"
+            placeholder="Søk i samtaler"
             placeholderTextColor={theme.textSecondary}
             style={[styles.searchInput, { color: theme.text }]}
           />
         </View>
       }>
-      {error ? (
+      {error && !conversations ? (
         <ErrorState message="Klarte ikke å hente samtalene." onRetry={() => mutate()} />
       ) : !conversations ? (
         <RefreshSpinner active />

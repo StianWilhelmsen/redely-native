@@ -23,7 +23,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useUnreadPayments } from '@/hooks/use-unread';
 import { api } from '@/lib/api';
 import { formatShortDate } from '@/lib/date-utils';
-import type { ShoppingItem } from '@/types/api';
+import type { Expense, ShoppingItem } from '@/types/api';
 
 type Tab = 'handleliste' | 'regninger';
 
@@ -251,7 +251,7 @@ function ShoppingListView() {
     <>
       <View style={{ gap: Spacing.five }}>
         <Section title="På listen" meta={openItems.length > 0 ? `${openItems.length}` : undefined}>
-          {error ? (
+          {error && !items ? (
             <ErrorState message="Klarte ikke å hente handlelisten." onRetry={() => mutateItems()} />
           ) : isLoading ? (
             <RefreshSpinner active />
@@ -377,6 +377,42 @@ function ExpensesView({ onPaid }: { onPaid: (message: string) => void }) {
     }
   };
 
+  // Matches the backend's rule: the payer (or an admin) can delete, but only while
+  // nobody has settled their share - after that, deleting would erase real money moved.
+  const canDelete = (expense: Expense) =>
+    (expense.paidBy?.id === me?.id || me?.admin) && expense.shares.every((s) => !s.paid);
+
+  const handleDelete = (expense: Expense) => {
+    Alert.alert(
+      'Slett utgift',
+      `Vil du slette «${expense.description || 'Handletur'}» på ${formatKr(expense.amount)}? De andre skylder deg ikke lenger noe for denne.`,
+      [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Slett',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mutateExpenses(
+                async (current) => {
+                  await api.deleteExpense(expense.id);
+                  return (current ?? []).filter((e) => e.id !== expense.id);
+                },
+                {
+                  optimisticData: (current) => (current ?? []).filter((e) => e.id !== expense.id),
+                  rollbackOnError: true,
+                  revalidate: false,
+                }
+              );
+            } catch (err) {
+              Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Prøv igjen senere.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const allExpenses = expenses ?? [];
 
   const myUnpaid = allExpenses.flatMap((expense) =>
@@ -414,7 +450,7 @@ function ExpensesView({ onPaid }: { onPaid: (message: string) => void }) {
       </View>
 
       <Section title="Nylige kjøp">
-        {error ? (
+        {error && !expenses ? (
           <ErrorState message="Klarte ikke å hente utgifter." onRetry={() => mutateExpenses()} />
         ) : isLoading ? (
           <RefreshSpinner active />
@@ -453,6 +489,16 @@ function ExpensesView({ onPaid }: { onPaid: (message: string) => void }) {
                         </ThemedText>
                       )}
                     </View>
+                    {canDelete(expense) && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Slett utgift"
+                        onPress={() => handleDelete(expense)}
+                        hitSlop={Spacing.one}
+                        style={styles.deleteButton}>
+                        <Ionicons name="trash-outline" size={16} color={theme.danger} />
+                      </Pressable>
+                    )}
                   </View>
                 </Fragment>
               );

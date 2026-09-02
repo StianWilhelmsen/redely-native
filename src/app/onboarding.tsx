@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,19 +12,29 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { PRIVACY_ROUTE, TERMS_ROUTE } from '@/constants/legal';
 import { Radii, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { forgetProviderName, getRememberedProviderName } from '@/lib/provider-profile';
 
 const STEP_COUNT = 3;
 const STEP_LABELS = ['Om deg', 'Profilbilde', 'Vilkår'];
 
 type PickedImage = { uri: string; name: string; type: string };
 
+/** The field asks for a first name; providers hand over a full one. */
+function firstNameOf(name: string | null | undefined) {
+  return name?.trim().split(/\s+/)[0] ?? '';
+}
+
 export default function OnboardingScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { data: me, mutate: mutateMe } = useMe();
+  // Straight off the session's user_metadata - what the identity provider itself said,
+  // before /api/me gets a chance to substitute a placeholder for it.
+  const providerName = useAuth().user?.name;
 
   const [step, setStep] = useState(0);
   const [firstName, setFirstName] = useState('');
@@ -35,6 +45,29 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
   // Which way the next step should slide in from, so going back reads as going back.
   const [direction, setDirection] = useState<1 | -1>(1);
+
+  // Sign in with Apple (and Google) already told us the user's name, and App Review
+  // guideline 4 forbids asking for it again on top of that - so the field arrives filled
+  // in and this step is a confirmation, not a form. Still editable: housemates see this
+  // name, and a legal first name isn't always what people go by.
+  //
+  // Both sources are the provider's own answer and nothing else. Deliberately *not*
+  // me.name: /api/me invents a placeholder when the provider gave no name (the local part
+  // of the email, which for an Apple private-relay address is "78b674nrtm"), and putting
+  // that in the field is worse than leaving it empty. Apple only returns a name at the
+  // very first authorization, so having none is a normal state - and asking for a name we
+  // were never given is exactly what guideline 4 permits.
+  useEffect(() => {
+    let cancelled = false;
+    getRememberedProviderName().then((remembered) => {
+      if (cancelled) return;
+      const prefill = firstNameOf(remembered) || firstNameOf(providerName);
+      if (prefill) setFirstName((current) => current || prefill);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [providerName]);
 
   const goBack = () => {
     setError(null);
@@ -87,6 +120,7 @@ export default function OnboardingScreen() {
         acceptedTerms: true,
         picture: image ?? undefined,
       });
+      await forgetProviderName();
       await mutateMe();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.');
@@ -174,7 +208,6 @@ export default function OnboardingScreen() {
                 onChangeText={setFirstName}
                 placeholder="Fornavn"
                 placeholderTextColor={theme.textSecondary}
-                autoFocus
                 style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
               />
             </View>
@@ -199,7 +232,7 @@ export default function OnboardingScreen() {
             <View style={styles.previewRow}>
               <AvatarBadge
                 userId={me?.id ?? 0}
-                name={firstName.trim() || me?.name || '?'}
+                name={firstName.trim() || '?'}
                 pictureUrl={image?.uri}
                 shape="circle"
                 size={48}
@@ -209,7 +242,7 @@ export default function OnboardingScreen() {
                   Slik ser du ut for de andre
                 </ThemedText>
                 <ThemedText type="smallBold" numberOfLines={1}>
-                  {firstName.trim() || me?.name || 'Navnet ditt'}
+                  {firstName.trim() || 'Navnet ditt'}
                 </ThemedText>
               </View>
             </View>

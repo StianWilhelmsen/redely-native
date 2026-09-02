@@ -34,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -48,8 +49,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Ryddig Kollektiv trenger tilgang til bildene dine for å sette profilbilde og sende bilder i chatten.",
-          "cameraPermission": "Ryddig Kollektiv trenger tilgang til kameraet for å ta bilder du sender i chatten."
+          "photosPermission": "Redely trenger tilgang til bildene dine for å sette profilbilde og sende bilder i chatten.",
+          "cameraPermission": "Redely trenger tilgang til kameraet for å ta bilder du sender i chatten."
         }
       ],
       "expo-audio",

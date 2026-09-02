@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { usePalette } from '@/theme/palette-context';
 
 type Mode = 'signIn' | 'signUp';
 
@@ -22,6 +24,7 @@ export default function SignInScreen() {
   const { signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signInError } =
     useAuth();
   const theme = useTheme();
+  const { scheme } = usePalette();
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState<Mode>('signIn');
@@ -167,24 +170,23 @@ export default function SignInScreen() {
             )}
           </Pressable>
 
+          {/* Apple's own button component, not a look-alike: guideline 4 requires Sign in
+              with Apple to use the system-provided control, which also localises its label
+              and follows the device appearance on its own. */}
           {Platform.OS === 'ios' && (
-            <Pressable
-              onPress={() => handleOAuth('apple')}
-              disabled={pending}
-              style={({ pressed }) => [
-                styles.oauthButton,
-                styles.appleButton,
-                pressed && styles.buttonPressed,
-                pending && styles.disabled,
-              ]}>
-              {pendingProvider === 'apple' ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <ThemedText type="smallBold" style={styles.appleButtonText}>
-                   Fortsett med Apple
-                </ThemedText>
-              )}
-            </Pressable>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={
+                scheme === 'dark'
+                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              cornerRadius={27}
+              style={[styles.appleButton, pending && styles.disabled]}
+              onPress={() => {
+                if (!pending) handleOAuth('apple');
+              }}
+            />
           )}
         </View>
 
@@ -268,11 +270,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Height only - AppleAuthenticationButton paints its own background and corners
+  // (cornerRadius prop), and rejects backgroundColor/borderRadius in `style`.
   appleButton: {
-    backgroundColor: '#000000',
-  },
-  appleButtonText: {
-    color: '#FFFFFF',
+    width: '100%',
+    height: 54,
   },
   buttonPressed: {
     opacity: 0.85,

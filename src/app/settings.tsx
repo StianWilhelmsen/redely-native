@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -153,15 +154,17 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
-        <Section title="Kollektiv">
-          <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-            <Row
-              label="Kollektivinnstillinger"
-              value={me?.collective ? me.collective.name : 'Ingen kollektiv'}
-              onPress={() => router.push('/collective-settings')}
-            />
-          </View>
-        </Section>
+        {me?.collective && (
+          <Section title="Kollektiv">
+            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+              <Row
+                label="Kollektivinnstillinger"
+                value={me.collective.name}
+                onPress={() => router.push('/collective-settings')}
+              />
+            </View>
+          </Section>
+        )}
 
         <Section title="Varslinger">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
@@ -182,7 +185,9 @@ export default function SettingsScreen() {
             <Separator />
             <Row label="Personvernerklæring" onPress={() => router.push(PRIVACY_ROUTE)} />
             <Separator />
-            <Row label="Versjon" value="1.0.0" />
+            {/* From app config, not hardcoded - EAS bumps versions remotely, and a stale
+                literal here would quietly lie in every build after the first. */}
+            <Row label="Versjon" value={Constants.expoConfig?.version ?? '–'} />
           </View>
         </Section>
 

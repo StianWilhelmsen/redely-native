@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import useSWR, { useSWRConfig } from 'swr';
 
+import { Card } from '@/components/card';
 import { ErrorState } from '@/components/error-state';
 import { currentMonthLabel, MonthActivityHeatmap } from '@/components/me/month-activity-heatmap';
-import { ProfileOverview } from '@/components/me/profile-overview';
+import { ProfileIdentity, ProfileOverview } from '@/components/me/profile-overview';
+import { PrimaryButton } from '@/components/primary-button';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
@@ -72,7 +74,7 @@ export default function MeScreen() {
     setRefreshing(false);
   };
 
-  if (meError) {
+  if (meError && !me) {
     return (
       <ScreenScroll>
         <ErrorState message="Klarte ikke å hente profilen din." onRetry={() => mutateMe()} />
@@ -134,6 +136,28 @@ export default function MeScreen() {
       ? quickActionFlavor(myWeeklyQuickActions, weeklyStats.weekStart)
       : null;
 
+  if (!me.collective) {
+    return (
+      <ScreenScroll eyebrow="Profil" title="Meg" refreshing={refreshing} onRefresh={handleRefresh}>
+        <ProfileIdentity
+          me={me}
+          memberCount={0}
+          onEditPicture={handlePickProfilePicture}
+          uploadingPicture={uploadingPicture}
+          onSettingsPress={() => router.push('/settings')}
+        />
+
+        <Card tone="brand">
+          <ThemedText type="heading">Finn kollektivet ditt</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Opprett et nytt kollektiv eller bruk en invitasjonskode for å bli med i et eksisterende.
+          </ThemedText>
+          <PrimaryButton label="Gå til Hjem" onPress={() => router.replace('/')} />
+        </Card>
+      </ScreenScroll>
+    );
+  }
+
   // Actually bounded to the current Mon-Sun week. Previously this only checked "has a due
   // date at all", so the six slots filled up with the oldest overdue tasks and this week's
   // work never appeared - despite the heading promising exactly that.
@@ -154,29 +178,35 @@ export default function MeScreen() {
 
   return (
     <ScreenScroll refreshing={refreshing} onRefresh={handleRefresh}>
-      {myStatsError ? (
+      {myStatsError && !myStats ? (
         <ErrorState message="Klarte ikke å hente statistikk." onRetry={() => mutateMyStats()} />
+      ) : myStats ? (
+        <ProfileOverview
+          me={me}
+          memberCount={memberCount}
+          totalOwed={totalOwed}
+          onOwedPress={() => router.push('/shopping')}
+          onEditPicture={handlePickProfilePicture}
+          uploadingPicture={uploadingPicture}
+          onSettingsPress={() => router.push('/settings')}
+          level={myStats.level}
+          lifetimePoints={myStats.lifetimePoints}
+          weekPoints={myStats.weekPoints}
+          pointsToNextLevel={myStats.pointsToNextLevel}
+          levelProgressPercent={myStats.levelProgressPercent}
+          badges={myStats.badges}
+          streakDays={myStats.streakDays}
+          weekQuickActions={myWeeklyQuickActions?.count ?? 0}
+          highlight={highlight}
+        />
       ) : (
-        myStats && (
-          <ProfileOverview
-            me={me}
-            memberCount={memberCount}
-            totalOwed={totalOwed}
-            onOwedPress={() => router.push('/shopping')}
-            onEditPicture={handlePickProfilePicture}
-            uploadingPicture={uploadingPicture}
-            onSettingsPress={() => router.push('/settings')}
-            level={myStats.level}
-            lifetimePoints={myStats.lifetimePoints}
-            weekPoints={myStats.weekPoints}
-            pointsToNextLevel={myStats.pointsToNextLevel}
-            levelProgressPercent={myStats.levelProgressPercent}
-            badges={myStats.badges}
-            streakDays={myStats.streakDays}
-            weekQuickActions={myWeeklyQuickActions?.count ?? 0}
-            highlight={highlight}
-          />
-        )
+        <ProfileIdentity
+          me={me}
+          memberCount={memberCount}
+          onEditPicture={handlePickProfilePicture}
+          uploadingPicture={uploadingPicture}
+          onSettingsPress={() => router.push('/settings')}
+        />
       )}
 
       {myStats && (

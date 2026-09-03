@@ -1,49 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimatedNumber } from '@/components/animated-number';
 import { AvatarBadge } from '@/components/avatar-badge';
 import { FlatDivider } from '@/components/flat-divider';
 import { FlatStatRow } from '@/components/flat-stat-row';
-import { HighlightQuote } from '@/components/highlight-quote';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Radii, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { levelTitle } from '@/lib/level-titles';
-import type { Badge, Me } from '@/types/api';
+import type { Me } from '@/types/api';
 
-type Props = {
+type ProfileIdentityProps = {
   me: Me;
   memberCount: number;
-  totalOwed: number;
-  onOwedPress: () => void;
   onEditPicture: () => void;
   uploadingPicture: boolean;
   onSettingsPress: () => void;
+};
 
+type Props = ProfileIdentityProps & {
   level: number;
   lifetimePoints: number;
   weekPoints: number;
   pointsToNextLevel: number;
   levelProgressPercent: number;
-  badges: Badge[];
   streakDays: number;
   weekQuickActions: number;
-  /** A generated one-liner about the week's most-repeated småjobb, or null if there's
-   *  nothing to highlight yet (not attributed to anyone - just your own activity). */
-  highlight: string | null;
 };
 
-type ProfileIdentityProps = Pick<
-  Props,
-  'me' | 'memberCount' | 'onEditPicture' | 'uploadingPicture' | 'onSettingsPress'
->;
-
-function formatKr(amount: number): string {
-  return `${Math.round(amount)} kr`;
-}
-
-/** The account header is useful even before the user belongs to a collective. */
+/** The account header is useful even before the rest of the stats have loaded. */
 export function ProfileIdentity({
   me,
   memberCount,
@@ -66,7 +52,7 @@ export function ProfileIdentity({
           {uploadingPicture ? (
             <ActivityIndicator size="small" color={theme.onBrand} />
           ) : (
-            <Ionicons name="camera" size={10} color={theme.onBrand} />
+            <Ionicons name="camera" size={11} color={theme.onBrand} />
           )}
         </View>
       </Pressable>
@@ -93,13 +79,13 @@ export function ProfileIdentity({
   );
 }
 
-/** Identity, level progress and this week's headline stats - one flowing unit, no card
- *  boundary, matching the rest of the screen's unboxed sections. */
+/**
+ * Identity, level progress and this week's headline numbers - one flowing unit with
+ * hairlines rather than card boundaries, matching the rest of the screen.
+ */
 export function ProfileOverview({
   me,
   memberCount,
-  totalOwed,
-  onOwedPress,
   onEditPicture,
   uploadingPicture,
   onSettingsPress,
@@ -108,15 +94,12 @@ export function ProfileOverview({
   weekPoints,
   pointsToNextLevel,
   levelProgressPercent,
-  badges,
   streakDays,
   weekQuickActions,
-  highlight,
 }: Props) {
   const theme = useTheme();
   const percent = Math.max(0, Math.min(100, levelProgressPercent));
   const title = levelTitle(level);
-  const topBadge = badges[0];
 
   return (
     <View style={styles.root}>
@@ -128,44 +111,21 @@ export function ProfileOverview({
         onSettingsPress={onSettingsPress}
       />
 
-      {totalOwed > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Du skylder ${formatKr(totalOwed)}. Gå til regninger.`}
-          onPress={onOwedPress}
-          style={({ pressed }) => [
-            styles.owedPill,
-            { backgroundColor: `${theme.danger}1C` },
-            pressed && styles.owedPillPressed,
-          ]}>
-          <ThemedText type="small" style={{ color: theme.danger }}>
-            Du skylder {formatKr(totalOwed)} →
-          </ThemedText>
-        </Pressable>
-      )}
-
-      {topBadge && (
-        <View style={[styles.badgePill, { backgroundColor: `${theme.brandSecondary}26` }]}>
-          <Text style={styles.badgeEmoji}>{topBadge.emoji}</Text>
-          <ThemedText type="smallBold">{topBadge.label}</ThemedText>
-        </View>
-      )}
-
       <FlatDivider />
 
       <View style={styles.levelBlock}>
-        <ThemedText type="eyebrow" themeColor="textSecondary">
+        <ThemedText type="eyebrow">
           {title ? `Nivå ${level} · ${title}` : `Nivå ${level}`}
         </ThemedText>
         <View style={styles.levelNumbersRow}>
           <View style={styles.levelNumbersLeft}>
-            <AnimatedNumber value={lifetimePoints} type="title" style={styles.bigNumber} />
+            <AnimatedNumber value={lifetimePoints} style={styles.bigNumber} />
             <ThemedText type="small" themeColor="textSecondary">
               poeng
             </ThemedText>
           </View>
           <View style={styles.levelNumbersRight}>
-            <ThemedText type="heading" style={styles.nextLevelNumber}>
+            <ThemedText style={[styles.nextLevelNumber, { color: theme.text }]}>
               {pointsToNextLevel}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
@@ -187,13 +147,6 @@ export function ProfileOverview({
           { value: streakDays, label: 'dager på rad' },
         ]}
       />
-
-      {highlight && (
-        <>
-          <FlatDivider />
-          <HighlightQuote text={highlight} caption="Ukens høydepunkt" />
-        </>
-      )}
     </View>
   );
 }
@@ -214,10 +167,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     bottom: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -231,27 +184,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
   },
-  owedPill: {
-    alignSelf: 'flex-start',
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-  },
-  owedPillPressed: {
-    opacity: 0.75,
-  },
-  badgePill: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: Spacing.one + 2,
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three - 2,
-    paddingVertical: Spacing.one + 2,
-  },
-  badgeEmoji: {
-    fontSize: 15,
-  },
   levelBlock: {
     gap: Spacing.two,
   },
@@ -263,18 +195,19 @@ const styles = StyleSheet.create({
   levelNumbersLeft: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
   bigNumber: {
-    fontSize: 40,
-    lineHeight: 46,
+    fontFamily: FontFamily.bold,
+    fontSize: 38,
+    lineHeight: 44,
   },
   levelNumbersRight: {
     alignItems: 'flex-end',
-    gap: 1,
   },
   nextLevelNumber: {
-    fontSize: 22,
+    fontFamily: FontFamily.bold,
+    fontSize: 20,
     lineHeight: 26,
   },
   track: {

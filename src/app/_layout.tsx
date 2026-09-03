@@ -240,6 +240,7 @@ function RootNavigator() {
         <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile" options={{ presentation: 'card' }} />
           <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
 
           <Stack.Protected guard={!!collectiveId}>

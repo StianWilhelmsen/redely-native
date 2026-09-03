@@ -13,8 +13,7 @@ import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
 import { useMe } from '@/hooks/use-me';
 import { api } from '@/lib/api';
-import { addDays, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
-import { quickActionFlavor } from '@/lib/weekly-summary-copy';
+import { addDays, localDateKey, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
 import type { Task } from '@/types/api';
 
 export default function MeScreen() {
@@ -28,10 +27,9 @@ export default function MeScreen() {
     api.myStats
   );
   // Shares the 'weekly-stats' cache key with Hjem, so it's usually already warm by the
-  // time someone lands here - it supplies this week's småjobb count and the highlight quote.
+  // time someone lands here - it supplies this week's småjobb count.
   const { data: weeklyStats } = useSWR(me?.collective ? 'weekly-stats' : null, api.weeklyStats);
   const { data: tasks, mutate: mutateTasks } = useSWR(me?.collective ? 'tasks' : null, api.tasks);
-  const { data: expenses } = useSWR(me?.collective ? 'expenses' : null, api.expenses);
 
   const handleToggleTask = async (task: Task) => {
     const next = !task.completed;
@@ -65,7 +63,6 @@ export default function MeScreen() {
       mutateMyStats(),
       globalMutate('weekly-stats'),
       globalMutate('tasks'),
-      globalMutate('expenses'),
     ]);
     setRefreshing(false);
   };
@@ -121,16 +118,8 @@ export default function MeScreen() {
   };
 
   const memberCount = members?.length ?? 0;
-  const totalOwed = (expenses ?? [])
-    .flatMap((e) => e.shares)
-    .filter((s) => s.user.id === me.id && !s.paid)
-    .reduce((sum, s) => sum + s.amountOwed, 0);
 
   const myWeeklyQuickActions = weeklyStats?.quickActionsByUser.find((entry) => entry.userId === me.id);
-  const highlight =
-    myWeeklyQuickActions && weeklyStats
-      ? quickActionFlavor(myWeeklyQuickActions, weeklyStats.weekStart)
-      : null;
 
   // Actually bounded to the current Mon-Sun week. Previously this only checked "has a due
   // date at all", so the six slots filled up with the oldest overdue tasks and this week's
@@ -158,8 +147,6 @@ export default function MeScreen() {
         <ProfileOverview
           me={me}
           memberCount={memberCount}
-          totalOwed={totalOwed}
-          onOwedPress={() => router.push('/shopping')}
           onEditPicture={handlePickProfilePicture}
           uploadingPicture={uploadingPicture}
           onSettingsPress={() => router.push('/settings')}
@@ -168,10 +155,8 @@ export default function MeScreen() {
           weekPoints={myStats.weekPoints}
           pointsToNextLevel={myStats.pointsToNextLevel}
           levelProgressPercent={myStats.levelProgressPercent}
-          badges={myStats.badges}
           streakDays={myStats.streakDays}
           weekQuickActions={myWeeklyQuickActions?.count ?? 0}
-          highlight={highlight}
         />
       ) : (
         <ProfileIdentity
@@ -184,17 +169,26 @@ export default function MeScreen() {
       )}
 
       {myStats && (
-        <Section title="Aktivitet" meta={currentMonthLabel()} variant="eyebrow">
+        <Section title="Aktivitet" meta={currentMonthLabel()}>
           <MonthActivityHeatmap data={myStats.monthActivity} />
         </Section>
       )}
 
-      <Section title="Mine oppgaver denne uken" variant="eyebrow">
+      <Section title="Mine oppgaver denne uken">
         <MyTaskList
           tasks={myWeekTasks}
           onToggle={handleToggleTask}
           onOpen={(task) => router.push({ pathname: '/tasks/new', params: { id: String(task.id) } })}
           emptyText="Du har ingen oppgaver denne uken. 🎉"
+          // A week-long list needs the day, not the points - which day a chore lands on is
+          // what you are scanning for when they are all yours anyway.
+          trailing={(task) => {
+            const due = parseDueDateLocal(task.dueDate);
+            if (!due) return '';
+            return localDateKey(due) === localDateKey(new Date())
+              ? 'i dag'
+              : due.toLocaleDateString('nb-NO', { weekday: 'short' }).replace('.', '');
+          }}
         />
       </Section>
     </ScreenScroll>

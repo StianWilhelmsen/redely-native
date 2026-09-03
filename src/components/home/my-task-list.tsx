@@ -12,13 +12,16 @@ type Props = {
   /** Long-press opens the task for editing - the row's short press is the checkbox. */
   onOpen: (task: Task) => void;
   emptyText: string;
+  /** What the right-hand column says. Defaults to the task's points; screens that already
+   *  group by day (Hjem) want that, while a week-long list wants the day instead. */
+  trailing?: (task: Task) => string;
 };
 
 /**
  * The signed-in member's own tasks, as a plain checklist. Everything about a row is
  * secondary to the one thing it is for: a tap anywhere on it ticks the box.
  */
-export function MyTaskList({ tasks, onToggle, onOpen, emptyText }: Props) {
+export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Props) {
   const theme = useTheme();
 
   if (tasks.length === 0) {
@@ -68,7 +71,7 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText }: Props) {
           </View>
 
           <ThemedText type="small" themeColor="textSecondary">
-            {task.points} p
+            {trailing ? trailing(task) : `${task.points} p`}
           </ThemedText>
         </Pressable>
       ))}

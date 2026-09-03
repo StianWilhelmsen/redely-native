@@ -1,45 +1,53 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import useSWR from 'swr';
 
-import {
-  ConversationView,
-  type ChatTarget,
-} from '@/components/chat/conversation-view';
 import { AvatarBadge } from '@/components/avatar-badge';
+import { ConversationView, type ChatTarget } from '@/components/chat/conversation-view';
 import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
-import { Section, Separator } from '@/components/section';
+import { Section } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { useCollectiveEvent } from '@/lib/collective-socket';
 import type { ChatConversation, ChatMessage, PresenceEvent } from '@/types/api';
 
-function formatConversationTime(iso: string) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long ago, at the coarsest useful resolution: a time for today, a word for
+ * yesterday, a weekday for this week, and a date once it stops being "recent".
+ */
+function formatConversationTime(iso: string): string {
   const date = new Date(iso);
-  const today = new Date();
-  if (date.toDateString() === today.toDateString()) {
-    return date.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
-  }
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const daysAgo = Math.floor((startOfToday - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / DAY_MS);
+
+  if (daysAgo <= 0) return date.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+  if (daysAgo === 1) return 'i går';
+  if (daysAgo < 7) return date.toLocaleDateString('nb-NO', { weekday: 'short' });
   return date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
 }
 
-function preview(conversation: ChatConversation, myId?: number) {
+function preview(conversation: ChatConversation, myId?: number): string {
   const message = conversation.lastMessage;
   if (!message) {
-    return conversation.type === 'GROUP' ? 'Ingen meldinger ennå' : 'Start en samtale';
+    return conversation.type === 'GROUP' ? 'Ingen meldinger ennå' : 'Ingen meldinger ennå';
   }
   const content = message.content?.trim() || (message.imageUrl ? '📷 Bilde' : 'Melding');
-  const prefix = message.senderId === myId ? 'Du: ' : conversation.type === 'GROUP'
-    ? `${message.senderName.split(' ')[0]}: `
-    : '';
+  const prefix =
+    message.senderId === myId
+      ? 'Du: '
+      : conversation.type === 'GROUP'
+        ? `${message.senderName.split(' ')[0]}: `
+        : '';
   return `${prefix}${content}`;
 }
 
@@ -62,7 +70,6 @@ export default function ChatScreen() {
     api.onlineMembers,
     { refreshInterval: 30_000 }
   );
-  const [search, setSearch] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -112,116 +119,79 @@ export default function ChatScreen() {
   }
 
   const group = conversations?.find((conversation) => conversation.type === 'GROUP');
-  const allDirect = conversations?.filter((conversation) => conversation.type === 'DIRECT') ?? [];
-  const query = search.trim().toLowerCase();
-  const direct = query ? allDirect.filter((c) => c.title.toLowerCase().includes(query)) : allDirect;
+  const direct = conversations?.filter((conversation) => conversation.type === 'DIRECT') ?? [];
 
   return (
     <ScreenScroll
       eyebrow={me?.collective?.name ?? 'Kollektivet'}
-      title="Meldinger"
+      title="Chat"
       refreshing={isLoading}
-      onRefresh={mutate}
-      headerExtra={
-        <View style={[styles.searchBar, { backgroundColor: theme.backgroundElement }]}>
-          <Ionicons name="search" size={16} color={theme.textSecondary} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Søk i samtaler"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.searchInput, { color: theme.text }]}
-          />
-        </View>
-      }>
+      onRefresh={mutate}>
       {error && !conversations ? (
         <ErrorState message="Klarte ikke å hente samtalene." onRetry={() => mutate()} />
       ) : !conversations ? (
         <RefreshSpinner active />
       ) : (
         <>
+          {/* The shared chat is its own band between two hairlines rather than the first
+              item of a list: it is the one conversation everybody is always in. */}
           {group && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Felleschat${group.unreadCount ? `, ${group.unreadCount} uleste` : ''}`}
-              onPress={() => setTarget({ type: 'GROUP', title: group.title })}
-              style={({ pressed }) => [
-                styles.groupCard,
-                { backgroundColor: `${theme.brand}14`, borderColor: `${theme.brand}35` },
-                pressed && styles.pressed,
-              ]}>
-              <CollectiveAvatar pictureUrl={me?.collective?.pictureUrl} size={48} />
-              <View style={styles.conversationText}>
-                <View style={styles.groupTitleRow}>
-                  <ThemedText type="smallBold" numberOfLines={1}>
-                    {group.title}
-                  </ThemedText>
-                  <View style={[styles.allePill, { backgroundColor: `${theme.brand}22` }]}>
-                    <ThemedText type="small" themeColor="brand" style={styles.allePillText}>
-                      ALLE
-                    </ThemedText>
-                  </View>
-                </View>
-                <ThemedText
-                  type={group.unreadCount > 0 ? 'smallBold' : 'small'}
-                  themeColor={group.unreadCount > 0 ? 'text' : 'textSecondary'}
-                  numberOfLines={1}>
-                  {preview(group, me?.id)}
-                </ThemedText>
-              </View>
-              <ConversationMeta conversation={group} />
-            </Pressable>
+            <View style={styles.groupBand}>
+              <View style={[styles.hairline, { backgroundColor: theme.border }]} />
+              <ConversationRow
+                title="Alle i kollektivet"
+                preview={preview(group, me?.id)}
+                unreadCount={group.unreadCount}
+                time={group.lastMessage ? formatConversationTime(group.lastMessage.createdAt) : null}
+                avatar={<CollectiveAvatar pictureUrl={me?.collective?.pictureUrl} size={44} />}
+                onPress={() => setTarget({ type: 'GROUP', title: group.title })}
+              />
+              <View style={[styles.hairline, { backgroundColor: theme.border }]} />
+            </View>
           )}
 
-          <Section title="Direktemeldinger">
+          <Section title="Direkte" variant="eyebrow">
             {direct.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {query
-                  ? 'Ingen treff.'
-                  : 'Inviter noen til kollektivet for å starte en privat samtale.'}
+              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
+                Inviter noen til kollektivet for å starte en privat samtale.
               </ThemedText>
             ) : (
-              <View style={[styles.directCard, { backgroundColor: theme.backgroundElement }]}>
-                {direct.map((conversation, index) => (
-                  <View key={conversation.peerId}>
-                    {index > 0 && <Separator />}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${conversation.title}${conversation.unreadCount ? `, ${conversation.unreadCount} uleste` : ''}${
-                        onlineIds?.includes(conversation.peerId!) ? ', pålogget' : ''
-                      }`}
-                      onPress={() => {
-                        if (conversation.peerId == null) return;
-                        setTarget({
-                          type: 'DIRECT',
-                          peer: {
-                            id: conversation.peerId,
-                            name: conversation.title,
-                            pictureUrl: conversation.pictureUrl,
-                          },
-                        });
-                      }}
-                      style={({ pressed }) => [styles.directRow, pressed && styles.pressed]}>
-                      <View style={styles.avatarWithDot}>
-                        <AvatarBadge
-                          userId={conversation.peerId!}
-                          name={conversation.title}
-                          pictureUrl={conversation.pictureUrl}
-                          size={48}
-                        />
-                        {onlineIds?.includes(conversation.peerId!) && (
-                          <View
-                            style={[
-                              styles.onlineDot,
-                              { backgroundColor: theme.success, borderColor: theme.backgroundElement },
-                            ]}
-                          />
-                        )}
-                      </View>
-                      <ConversationText conversation={conversation} myId={me?.id} />
-                      <ConversationMeta conversation={conversation} />
-                    </Pressable>
-                  </View>
+              <View>
+                {direct.map((conversation) => (
+                  <ConversationRow
+                    key={conversation.peerId}
+                    title={conversation.title}
+                    preview={preview(conversation, me?.id)}
+                    unreadCount={conversation.unreadCount}
+                    time={
+                      conversation.lastMessage
+                        ? formatConversationTime(conversation.lastMessage.createdAt)
+                        : null
+                    }
+                    online={
+                      conversation.peerId != null && !!onlineIds?.includes(conversation.peerId)
+                    }
+                    avatar={
+                      <AvatarBadge
+                        userId={conversation.peerId!}
+                        name={conversation.title}
+                        pictureUrl={conversation.pictureUrl}
+                        shape="circle"
+                        size={44}
+                      />
+                    }
+                    onPress={() => {
+                      if (conversation.peerId == null) return;
+                      setTarget({
+                        type: 'DIRECT',
+                        peer: {
+                          id: conversation.peerId,
+                          name: conversation.title,
+                          pictureUrl: conversation.pictureUrl,
+                        },
+                      });
+                    }}
+                  />
                 ))}
               </View>
             )}
@@ -232,129 +202,125 @@ export default function ChatScreen() {
   );
 }
 
-function ConversationText({
-  conversation,
-  myId,
+function ConversationRow({
+  title,
+  preview,
+  unreadCount,
+  time,
+  avatar,
+  online,
+  onPress,
 }: {
-  conversation: ChatConversation;
-  myId?: number;
+  title: string;
+  preview: string;
+  unreadCount: number;
+  time: string | null;
+  avatar: React.ReactNode;
+  online?: boolean;
+  onPress: () => void;
 }) {
-  return (
-    <View style={styles.conversationText}>
-      <ThemedText type="smallBold" numberOfLines={1}>
-        {conversation.title}
-      </ThemedText>
-      <ThemedText
-        type={conversation.unreadCount > 0 ? 'smallBold' : 'small'}
-        themeColor={conversation.unreadCount > 0 ? 'text' : 'textSecondary'}
-        numberOfLines={1}>
-        {preview(conversation, myId)}
-      </ThemedText>
-    </View>
-  );
-}
-
-function ConversationMeta({ conversation }: { conversation: ChatConversation }) {
   const theme = useTheme();
+  const hasUnread = unreadCount > 0;
+
   return (
-    <View style={styles.meta}>
-      {conversation.lastMessage && (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.time}>
-          {formatConversationTime(conversation.lastMessage.createdAt)}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}${hasUnread ? `, ${unreadCount} uleste` : ''}${online ? ', pålogget' : ''}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <View style={styles.avatarWrap}>
+        {avatar}
+        {online && (
+          <View
+            style={[
+              styles.onlineDot,
+              { backgroundColor: theme.success, borderColor: theme.background },
+            ]}
+          />
+        )}
+      </View>
+
+      <View style={styles.text}>
+        <ThemedText type="smallBold" numberOfLines={1}>
+          {title}
         </ThemedText>
-      )}
-      {conversation.unreadCount > 0 && (
-        <View style={[styles.unreadBadge, { backgroundColor: theme.brand }]}>
-          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
-            {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+        <ThemedText
+          type={hasUnread ? 'smallBold' : 'small'}
+          themeColor={hasUnread ? 'text' : 'textSecondary'}
+          numberOfLines={1}>
+          {preview}
+        </ThemedText>
+      </View>
+
+      <View style={styles.meta}>
+        {time && (
+          // Unread turns the timestamp brand-coloured: the badge says how many, the time
+          // says how long it has been sitting there.
+          <ThemedText type="small" themeColor={hasUnread ? 'brand' : 'textSecondary'}>
+            {time}
           </ThemedText>
-        </View>
-      )}
-    </View>
+        )}
+        {hasUnread && (
+          <View style={[styles.badge, { backgroundColor: theme.brand }]}>
+            <ThemedText type="smallBold" style={[styles.badgeText, { color: theme.onBrand }]}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </ThemedText>
+          </View>
+        )}
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
-    height: 44,
+  groupBand: {
+    gap: 0,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
+  hairline: {
+    height: StyleSheet.hairlineWidth,
   },
-  groupCard: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radii.card,
-    padding: Spacing.three,
+    paddingVertical: Spacing.three,
   },
-  groupTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  allePill: {
-    borderRadius: Radii.chip,
-    paddingHorizontal: Spacing.one + 2,
-    paddingVertical: 1,
-  },
-  allePillText: {
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  avatarWithDot: {
+  avatarWrap: {
     position: 'relative',
   },
   onlineDot: {
     position: 'absolute',
-    right: 1,
-    bottom: 1,
+    right: 0,
+    bottom: 0,
     width: 12,
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
   },
-  directCard: {
-    borderRadius: Radii.card,
-    paddingHorizontal: Spacing.three,
-  },
-  directRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  conversationText: {
+  text: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: 1,
   },
   meta: {
-    minWidth: 34,
     alignItems: 'flex-end',
     gap: Spacing.one,
   },
-  time: {
-    fontSize: 11,
-  },
-  unreadBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badgeText: {
+    fontSize: 11,
+  },
+  empty: {
+    paddingVertical: Spacing.two,
+  },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
 });

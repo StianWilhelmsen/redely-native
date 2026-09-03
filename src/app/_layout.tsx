@@ -231,6 +231,12 @@ function RootNavigator() {
             which is also what guideline 5.1.1(i) asks for. */}
         <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
 
+        {/* Also outside the guards, for a different reason: this flow creates the
+            collective on its first step but runs for two more. The moment `me` revalidates
+            and reports that collective, `needsOnboarding` flips - and a guarded screen
+            would be torn down mid-flow, before anyone had seen the invite code. */}
+        <Stack.Screen name="new-collective" />
+
         <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
@@ -250,7 +256,6 @@ function RootNavigator() {
 
         <Stack.Protected guard={needsOnboarding}>
           <Stack.Screen name="onboarding" />
-          <Stack.Screen name="new-collective" />
         </Stack.Protected>
 
         <Stack.Protected guard={status === 'signedOut'}>

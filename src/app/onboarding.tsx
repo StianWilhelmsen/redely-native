@@ -17,19 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { PRIVACY_ROUTE, TERMS_ROUTE } from '@/constants/legal';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Control, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError } from '@/lib/api';
+import { INVITE_CODE_LENGTH, normalizeInviteCode } from '@/lib/invite-code';
 import { forgetProviderName, getRememberedProviderName } from '@/lib/provider-profile';
-
-/** Shared with sign-in: every control on the auth screens is one height and one radius. */
-const CONTROL_HEIGHT = 52;
-const CONTROL_RADIUS = 14;
-
-/** Invite codes are 5 alphanumeric characters (see InviteService on the backend). */
-const CODE_LENGTH = 5;
 
 const STEP_COUNT = 2;
 
@@ -161,7 +155,7 @@ export default function OnboardingScreen() {
   };
 
   const handleJoinCollective = async () => {
-    if (inviteCode.length < CODE_LENGTH) {
+    if (inviteCode.length < INVITE_CODE_LENGTH) {
       setError('Koden er på fem tegn.');
       return;
     }
@@ -185,14 +179,10 @@ export default function OnboardingScreen() {
     }
   };
 
-  // The keyboard (or a paste) can hand us anything - normalize to what a code can hold.
+  // The keyboard (or a paste of the whole "RYD-XXXXX" a housemate shared) can hand us
+  // anything - normalize to the bare code the API expects.
   const handleCodeChange = (raw: string) => {
-    setInviteCode(
-      raw
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '')
-        .slice(0, CODE_LENGTH)
-    );
+    setInviteCode(normalizeInviteCode(raw));
     if (error) setError(null);
   };
 
@@ -353,7 +343,7 @@ export default function OnboardingScreen() {
                     autoCorrect={false}
                     autoComplete="off"
                     spellCheck={false}
-                    maxLength={CODE_LENGTH}
+                    maxLength={INVITE_CODE_LENGTH + 4}
                     returnKeyType="done"
                     style={[
                       styles.input,
@@ -364,11 +354,11 @@ export default function OnboardingScreen() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={handleJoinCollective}
-                    disabled={busy || inviteCode.length < CODE_LENGTH}
+                    disabled={busy || inviteCode.length < INVITE_CODE_LENGTH}
                     style={({ pressed }) => [
                       styles.joinButton,
                       { backgroundColor: theme.backgroundSelected },
-                      (busy || inviteCode.length < CODE_LENGTH) && styles.disabled,
+                      (busy || inviteCode.length < INVITE_CODE_LENGTH) && styles.disabled,
                       pressed && styles.pressed,
                     ]}>
                     {joining ? (
@@ -493,8 +483,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   input: {
-    height: CONTROL_HEIGHT,
-    borderRadius: CONTROL_RADIUS,
+    height: Control.height,
+    borderRadius: Control.radius,
     paddingHorizontal: Spacing.three + Spacing.half,
     fontFamily: FontFamily.regular,
     fontSize: 15,
@@ -520,7 +510,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderRadius: CONTROL_RADIUS + 2,
+    borderRadius: Control.radius + 2,
     padding: Spacing.three + Spacing.half,
     marginTop: Spacing.four,
   },
@@ -542,8 +532,8 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
   },
   joinButton: {
-    height: CONTROL_HEIGHT,
-    borderRadius: CONTROL_RADIUS,
+    height: Control.height,
+    borderRadius: Control.radius,
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     justifyContent: 'center',
@@ -560,8 +550,8 @@ const styles = StyleSheet.create({
     minHeight: Spacing.five,
   },
   primaryButton: {
-    height: CONTROL_HEIGHT,
-    borderRadius: CONTROL_RADIUS,
+    height: Control.height,
+    borderRadius: Control.radius,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.four,

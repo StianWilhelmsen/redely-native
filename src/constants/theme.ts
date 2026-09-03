@@ -230,6 +230,15 @@ export const Spacing = {
 export const BottomTabInset = Platform.select({ ios: 76, android: 84 }) ?? 76;
 export const MaxContentWidth = 800;
 
+/**
+ * One height and one radius for every control on the auth and onboarding screens, so
+ * inputs, buttons and provider tiles stack into a single column with no visual seams.
+ */
+export const Control = {
+  height: 52,
+  radius: 14,
+} as const;
+
 /** Shared corner-radius scale — every rounded surface should reference one of these. */
 export const Radii = {
   chip: 12,

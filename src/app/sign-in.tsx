@@ -13,17 +13,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Control, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { usePalette } from '@/theme/palette-context';
 
 type Mode = 'signIn' | 'signUp';
-
-/** Every control on this screen shares one height and corner radius - inputs, the primary
- *  action and the provider buttons all line up as a single stack. */
-const CONTROL_HEIGHT = 52;
-const CONTROL_RADIUS = 14;
 
 export default function SignInScreen() {
   const { signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signInError } =
@@ -187,7 +182,7 @@ export default function SignInScreen() {
                 ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
                 : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
             }
-            cornerRadius={CONTROL_RADIUS}
+            cornerRadius={Control.radius}
             style={[styles.appleButton, pending && styles.disabled]}
             onPress={() => {
               if (!pending) handleOAuth('apple');
@@ -243,8 +238,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two + Spacing.half,
   },
   control: {
-    height: CONTROL_HEIGHT,
-    borderRadius: CONTROL_RADIUS,
+    height: Control.height,
+    borderRadius: Control.radius,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -253,8 +248,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   input: {
-    height: CONTROL_HEIGHT,
-    borderRadius: CONTROL_RADIUS,
+    height: Control.height,
+    borderRadius: Control.radius,
     paddingHorizontal: Spacing.three + Spacing.half,
     fontFamily: FontFamily.regular,
     fontSize: 15,
@@ -291,7 +286,7 @@ const styles = StyleSheet.create({
   // (cornerRadius prop), and rejects backgroundColor/borderRadius in `style`.
   appleButton: {
     width: '100%',
-    height: CONTROL_HEIGHT,
+    height: Control.height,
   },
   providerButton: {
     borderWidth: 1,

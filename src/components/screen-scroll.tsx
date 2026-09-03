@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,13 +87,11 @@ export function ScreenScroll({
                   </ThemedText>
                 )}
               </View>
-              {headerRight ?? (
-                <Image
-                  source={require('@/assets/images/android-icon-foreground.png')}
-                  style={styles.brandMarkImage}
-                  contentFit="contain"
-                />
-              )}
+              {/* Nothing by default: a screen that wants something here (Hjem's collective
+                  avatar) says so. The app's own mark used to sit here on every screen,
+                  which spent the most valuable corner of the layout telling people which
+                  app they had already opened. */}
+              {headerRight}
             </View>
             {headerExtra}
           </View>
@@ -128,10 +125,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
-  },
-  brandMarkImage: {
-    width: 80,
-    height: 80,
   },
   headerText: {
     flex: 1,

@@ -182,8 +182,11 @@ function RootNavigator() {
   // tier spins down) or unreachable looked exactly like the app hanging on launch, with no
   // way out but force-quitting. SWR keeps `data` undefined on a first-load error, so the
   // error has to be checked explicitly rather than inferred from the absence of data.
-  const profileFailed = status === 'signedIn' && !me && !!meError;
-  const stillResolvingProfile = status === 'signedIn' && !me && !meError;
+  // `!isValidatingMe` matters: SWR retries a failed fetch on its own, and without it the
+  // very first failure painted the error screen while a retry that would have succeeded
+  // was already in flight. Keep showing the spinner until SWR has actually given up.
+  const profileFailed = status === 'signedIn' && !me && !!meError && !isValidatingMe;
+  const stillResolvingProfile = status === 'signedIn' && !me && (!meError || isValidatingMe);
 
   if (profileFailed) {
     return (

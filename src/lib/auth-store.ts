@@ -58,12 +58,24 @@ export function getUser(session: Session | null): AuthUser | null {
 
 /**
  * Returns a currently-valid access token. supabase-js's getSession() transparently
- * refreshes an expired session before returning. Throws if the session can't be restored.
+ * refreshes an expired session before returning.
+ *
+ * The retry is for a specific gap, not for flakiness: supabase-js briefly holds no
+ * session while it swaps tokens, and Sign in with Apple walks straight into it - the
+ * sign-in handler calls updateUser() and refreshSession() to persist the name, and the
+ * very first /api/me fires in the same moment. Failing there threw "Not signed in"
+ * before any request was made, which the app rendered as "Får ikke kontakt" instantly,
+ * on a working network and a healthy backend.
  */
 export async function getValidIdToken(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) throw new Error('Not signed in');
-  return data.session.access_token;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return data.session.access_token;
+    // Genuinely signed out is handled by the navigator, which never renders anything
+    // that calls this - so waiting a moment costs nothing real.
+    await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+  }
+  throw new Error('Not signed in');
 }
 
 export async function clearSession() {

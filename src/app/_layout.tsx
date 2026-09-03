@@ -226,17 +226,6 @@ function RootNavigator() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
-        {/* Outside every guard on purpose: the consent checkbox in onboarding links to
-            these documents, so they have to be reachable before onboarding is finished -
-            which is also what guideline 5.1.1(i) asks for. */}
-        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
-
-        {/* Also outside the guards, for a different reason: this flow creates the
-            collective on its first step but runs for two more. The moment `me` revalidates
-            and reports that collective, `needsOnboarding` flips - and a guarded screen
-            would be torn down mid-flow, before anyone had seen the invite code. */}
-        <Stack.Screen name="new-collective" />
-
         <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
@@ -263,6 +252,20 @@ function RootNavigator() {
         <Stack.Protected guard={status === 'signedOut'}>
           <Stack.Screen name="sign-in" />
         </Stack.Protected>
+
+        {/* Declared last, and that matters: the first screen in a Stack is its anchor, so
+            whatever sits here is where the router falls back when the screen you are on
+            gets unmounted. These two are ungated, so having them first meant that leaving
+            a collective - which tears down every guarded screen at once - dropped you on
+            the terms of use with no way back.
+
+            Ungated on purpose all the same: onboarding's consent checkbox links to these
+            documents before onboarding can finish (and guideline 5.1.1(i) asks for that),
+            and the new-collective flow creates the collective on its first step but runs
+            for two more, so a guarded version would vanish mid-flow the moment `me`
+            revalidated - before anyone had seen the invite code. */}
+        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="new-collective" />
       </Stack>
       {status === 'signedIn' && !needsOnboarding && meId && collectiveId ? (
         <WeeklySummaryGate userId={meId} />

@@ -17,26 +17,21 @@ import { AvatarBadge } from '@/components/avatar-badge';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { Control, FontFamily, Spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 
-/**
- * Your own account: the name and face your housemates see, and - because an app that
- * lets you create an account has to let you delete it from inside it (App Store guideline
- * 5.1.1(v)) - the way out.
- */
+/** The name and face your housemates see. Nothing else: the email is the identity
+ *  provider's business, and deleting the account lives with the other account actions
+ *  at the bottom of Innstillinger. */
 export default function ProfileScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
   const { data: me, mutate: mutateMe } = useMe();
 
   const [name, setName] = useState(me?.name ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const dirty = name.trim().length > 0 && name.trim() !== me?.name;
@@ -90,46 +85,6 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  };
-
-  /** Two prompts, and the second says what actually disappears rather than asking
-   *  "are you sure?" a second time. */
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Slette kontoen din?',
-      'Profilen, meldingene og utgiftene dine blir borte for godt. Dette kan ikke angres.',
-      [
-        { text: 'Avbryt', style: 'cancel' },
-        {
-          text: 'Slett',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Helt sikker?', 'Siste sjanse — kontoen slettes permanent.', [
-              { text: 'Avbryt', style: 'cancel' },
-              {
-                text: 'Slett kontoen',
-                style: 'destructive',
-                onPress: async () => {
-                  setDeleting(true);
-                  try {
-                    await api.deleteAccount();
-                    // The account is gone, so the session is meaningless.
-                    await signOut();
-                  } catch (err) {
-                    Alert.alert(
-                      'Kunne ikke slette kontoen',
-                      err instanceof Error ? err.message : 'Prøv igjen, eller kontakt oss.'
-                    );
-                  } finally {
-                    setDeleting(false);
-                  }
-                },
-              },
-            ]);
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -190,19 +145,6 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.field}>
-          <ThemedText type="small" themeColor="textSecondary">
-            E-post
-          </ThemedText>
-          {/* Read-only: the address comes from whichever identity provider signed you in,
-              so changing it here would only make the two disagree. */}
-          <View style={[styles.readOnly, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {me?.email}
-            </ThemedText>
-          </View>
-        </View>
-
         {error && (
           <ThemedText type="small" themeColor="danger">
             {error}
@@ -210,21 +152,6 @@ export default function ProfileScreen() {
         )}
 
         {dirty && <PrimaryButton label="Lagre" onPress={handleSaveName} loading={saving} size="large" />}
-
-        <View style={styles.danger}>
-          <ThemedText type="eyebrow" style={styles.dangerLabel}>
-            Farlig sone
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.dangerBody}>
-            Sletting fjerner profilen din, meldingene dine og utgiftene du har lagt ut. Er du alene
-            i kollektivet, slettes kollektivet også. Dette kan ikke angres.
-          </ThemedText>
-          <Pressable onPress={handleDeleteAccount} disabled={deleting} hitSlop={Spacing.two}>
-            <ThemedText type="smallBold" themeColor="danger">
-              {deleting ? 'Sletter…' : 'Slett konto'}
-            </ThemedText>
-          </Pressable>
-        </View>
       </ScrollView>
     </View>
   );
@@ -276,21 +203,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three + Spacing.half,
     fontFamily: FontFamily.regular,
     fontSize: 15,
-  },
-  readOnly: {
-    height: Control.height,
-    borderRadius: Control.radius,
-    paddingHorizontal: Spacing.three + Spacing.half,
-    justifyContent: 'center',
-  },
-  danger: {
-    marginTop: Spacing.five,
-    gap: Spacing.two,
-  },
-  dangerLabel: {
-    marginBottom: Spacing.half,
-  },
-  dangerBody: {
-    lineHeight: 19,
   },
 });

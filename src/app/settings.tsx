@@ -60,6 +60,7 @@ export default function SettingsScreen() {
   const [loadingInvite, setLoadingInvite] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const memberCount = members?.length ?? 0;
 
@@ -79,6 +80,50 @@ export default function SettingsScreen() {
     } finally {
       setLoadingInvite(false);
     }
+  };
+
+  /**
+   * Two prompts, and the second says what actually disappears rather than asking
+   * "are you sure?" a second time. Required by App Store guideline 5.1.1(v): an app that
+   * lets you create an account has to let you delete it from inside the app.
+   */
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Slette brukeren din?',
+      'Profilen, meldingene og utgiftene dine blir borte for godt. Dette kan ikke angres.',
+      [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Slett',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Helt sikker?', 'Siste sjanse — brukeren slettes permanent.', [
+              { text: 'Avbryt', style: 'cancel' },
+              {
+                text: 'Slett brukeren',
+                style: 'destructive',
+                onPress: async () => {
+                  setDeleting(true);
+                  try {
+                    await api.deleteAccount();
+                    // The account is gone, so the session is meaningless - signing out
+                    // drops the tokens and sends the navigator back to sign-in.
+                    await signOut();
+                  } catch (err) {
+                    Alert.alert(
+                      'Kunne ikke slette brukeren',
+                      err instanceof Error ? err.message : 'Prøv igjen, eller kontakt oss.'
+                    );
+                  } finally {
+                    setDeleting(false);
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ]
+    );
   };
 
   const handleLeave = () => {
@@ -181,7 +226,6 @@ export default function SettingsScreen() {
             value={me?.name}
             onPress={() => router.push('/profile')}
           />
-          <SettingsRow label="E-post" value={me?.email} />
           <SettingsRow
             label="Varslinger"
             value={me?.notifyTasks || me?.notifyChat ? 'På' : 'Av'}
@@ -231,6 +275,16 @@ export default function SettingsScreen() {
               </ThemedText>
             </Pressable>
           )}
+
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={deleting}
+            hitSlop={Spacing.two}
+            style={styles.action}>
+            <ThemedText type="small" themeColor="danger">
+              {deleting ? 'Sletter…' : 'Slett brukeren min'}
+            </ThemedText>
+          </Pressable>
         </View>
       </ScrollView>
 

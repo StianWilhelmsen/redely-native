@@ -9,11 +9,10 @@
  * into a collective id. Configuring this wrong silently attributes purchases to the wrong
  * collective, so PurchasesSync below is the only place logIn() is ever called.
  */
-import Purchases, {
-  PURCHASES_ERROR_CODE,
-  type CustomerInfo,
-  type PurchasesError,
-  type PurchasesStoreProduct,
+import type {
+  CustomerInfo,
+  PurchasesError,
+  PurchasesStoreProduct,
 } from 'react-native-purchases';
 
 import { env } from '@/lib/env';
@@ -22,14 +21,39 @@ import { env } from '@/lib/env';
  *  real failure, callers should catch this and simply do nothing (no error alert). */
 export class PurchaseCancelledError extends Error {}
 
-/** Thrown when a purchase/restore is attempted before configure() has run - only possible
- *  if EXPO_PUBLIC_REVENUECAT_IOS_KEY was never set, or PurchasesSync hasn't mounted yet. */
+/** Thrown when a purchase/restore is attempted before configure() has run - possible if
+ *  EXPO_PUBLIC_REVENUECAT_IOS_KEY was never set, or the SDK isn't in this binary. */
 export class PurchasesNotConfiguredError extends Error {}
+
+type PurchasesModule = typeof import('react-native-purchases');
+
+let cachedModule: PurchasesModule | null | undefined;
+
+/**
+ * RevenueCat is a third-party native module, so it is not part of Expo Go - and a static
+ * import would take the whole app down at startup there, before a single screen could be
+ * looked at. Requiring it lazily keeps everything except buying a subscription testable
+ * in Expo Go, and the purchase paths report themselves as unconfigured instead.
+ */
+function loadPurchases(): PurchasesModule | null {
+  if (cachedModule !== undefined) return cachedModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberately not
+    // a static import: this must be allowed to fail without taking the app with it.
+    cachedModule = require('react-native-purchases') as PurchasesModule;
+  } catch {
+    if (__DEV__) {
+      console.warn('[purchases] react-native-purchases is unavailable (Expo Go?) - purchases disabled.');
+    }
+    cachedModule = null;
+  }
+  return cachedModule;
+}
 
 let configured = false;
 
 /** Idempotent - safe to call from multiple places, only the first call does anything.
- *  Called once from PurchasesSync on mount; nothing else in the app should call this. */
+ *  Called once from the root layout on mount; nothing else should call this. */
 export function ensurePurchasesConfigured() {
   if (configured) return;
   if (!env.revenueCatIosApiKey) {
@@ -39,29 +63,35 @@ export function ensurePurchasesConfigured() {
     if (__DEV__) console.warn('[purchases] EXPO_PUBLIC_REVENUECAT_IOS_KEY not set - purchases disabled.');
     return;
   }
-  Purchases.configure({ apiKey: env.revenueCatIosApiKey });
+  const purchases = loadPurchases();
+  if (!purchases) return;
+
+  purchases.default.configure({ apiKey: env.revenueCatIosApiKey });
   configured = true;
 }
 
 /** Switches RevenueCat's active subscriber to this collective. Safe to call repeatedly
  *  with the same id - RevenueCat no-ops a logIn to the id that's already active. */
 export async function syncPurchasesIdentity(collectiveId: number) {
-  if (!configured) return;
-  await Purchases.logIn(String(collectiveId));
+  const purchases = loadPurchases();
+  if (!configured || !purchases) return;
+  await purchases.default.logIn(String(collectiveId));
 }
 
-function isCancelled(err: unknown): boolean {
+function isCancelled(err: unknown, purchases: PurchasesModule): boolean {
   return (
     typeof err === 'object' &&
     err !== null &&
     'code' in err &&
-    (err as PurchasesError).code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+    (err as PurchasesError).code === purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
   );
 }
 
-async function fetchProduct(productId: string): Promise<PurchasesStoreProduct> {
-  if (!configured) throw new PurchasesNotConfiguredError();
-  const products = await Purchases.getProducts([productId]);
+async function fetchProduct(
+  productId: string,
+  purchases: PurchasesModule
+): Promise<PurchasesStoreProduct> {
+  const products = await purchases.default.getProducts([productId]);
   const product = products[0];
   if (!product) {
     throw new Error(`Fant ikke produktet "${productId}" - er det godkjent i App Store Connect ennå?`);
@@ -75,17 +105,21 @@ async function fetchProduct(productId: string): Promise<PurchasesStoreProduct> {
  *  webhook, not here - callers should refetch billing status after this resolves rather
  *  than assume this promise settling means access changed instantly. */
 export async function purchasePlan(productId: string): Promise<CustomerInfo> {
-  const product = await fetchProduct(productId);
+  const purchases = loadPurchases();
+  if (!configured || !purchases) throw new PurchasesNotConfiguredError();
+
+  const product = await fetchProduct(productId, purchases);
   try {
-    const result = await Purchases.purchaseStoreProduct(product);
+    const result = await purchases.default.purchaseStoreProduct(product);
     return result.customerInfo;
   } catch (err) {
-    if (isCancelled(err)) throw new PurchaseCancelledError();
+    if (isCancelled(err, purchases)) throw new PurchaseCancelledError();
     throw err;
   }
 }
 
 export async function restorePurchases(): Promise<CustomerInfo> {
-  if (!configured) throw new PurchasesNotConfiguredError();
-  return Purchases.restorePurchases();
+  const purchases = loadPurchases();
+  if (!configured || !purchases) throw new PurchasesNotConfiguredError();
+  return purchases.default.restorePurchases();
 }

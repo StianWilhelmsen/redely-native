@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useSWRConfig } from 'swr';
 
 import {
   clearSession,
@@ -194,12 +195,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needsEmailConfirmation: !data.session };
   }, []);
 
+  const { mutate } = useSWRConfig();
+
   const signOut = useCallback(async () => {
     // Must happen before clearSession() - clearing the session needs a still-valid
     // one to authenticate the request. Best-effort: sign-out proceeds either way.
     await clearPushToken();
     await clearSession();
-  }, []);
+    // Purge the SWR cache: without this, the next account to sign in on this device is
+    // served the previous account's cached data ('me' included) while revalidation is
+    // in flight - which both flashes someone else's household on screen and made the
+    // push-token sync fire with a stale user id before the new profile existed.
+    await mutate(() => true, undefined, { revalidate: false });
+  }, [mutate]);
 
   const user = useMemo(() => getUser(session), [session]);
 

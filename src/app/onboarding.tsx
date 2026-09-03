@@ -58,7 +58,6 @@ export default function OnboardingScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [collectiveName, setCollectiveName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
   const codeInputRef = useRef<TextInput>(null);
@@ -154,25 +153,6 @@ export default function OnboardingScreen() {
       await forgetProviderName();
       await mutateMe();
       setStep(1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCreateCollective = async () => {
-    const name = collectiveName.trim();
-    if (!name) {
-      setError('Gi kollektivet et navn.');
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await api.createCollective(name);
-      // The navigator leaves onboarding as soon as `me` reports a collective.
-      await mutateMe();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.');
     } finally {
@@ -347,28 +327,13 @@ export default function OnboardingScreen() {
                 Et kollektiv er dere som deler bolig. Én oppretter, resten blir med.
               </ThemedText>
 
+              {/* No name field here on purpose: this card is a doorway, and naming (plus
+                  the photo) is the "Nytt kollektiv" flow the button below opens. */}
               <View style={[styles.card, styles.cardPrimary, { borderColor: theme.brand }]}>
                 <ThemedText type="heading">Opprett nytt kollektiv</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.cardBody}>
                   Gi det navn og bilde, så inviterer du de andre. Første måned er gratis.
                 </ThemedText>
-                <TextInput
-                  value={collectiveName}
-                  onChangeText={(text) => {
-                    setCollectiveName(text);
-                    if (error) setError(null);
-                  }}
-                  onSubmitEditing={handleCreateCollective}
-                  placeholder="Navn på kollektivet"
-                  placeholderTextColor={theme.textSecondary}
-                  returnKeyType="done"
-                  maxLength={60}
-                  style={[
-                    styles.input,
-                    styles.cardInput,
-                    { backgroundColor: theme.backgroundElement, color: theme.text },
-                  ]}
-                />
               </View>
 
               <View style={[styles.card, { borderColor: theme.border }]}>
@@ -430,7 +395,7 @@ export default function OnboardingScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={step === 0 ? handleProfileSubmit : handleCreateCollective}
+          onPress={step === 0 ? handleProfileSubmit : () => router.push('/new-collective')}
           disabled={busy}
           style={({ pressed }) => [
             styles.primaryButton,
@@ -565,9 +530,6 @@ const styles = StyleSheet.create({
   cardBody: {
     marginTop: Spacing.half,
     lineHeight: 20,
-  },
-  cardInput: {
-    marginTop: Spacing.three,
   },
   joinRow: {
     flexDirection: 'row',

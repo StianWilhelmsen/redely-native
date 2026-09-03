@@ -250,6 +250,7 @@ function RootNavigator() {
 
         <Stack.Protected guard={needsOnboarding}>
           <Stack.Screen name="onboarding" />
+          <Stack.Screen name="new-collective" />
         </Stack.Protected>
 
         <Stack.Protected guard={status === 'signedOut'}>

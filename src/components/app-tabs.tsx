@@ -80,7 +80,11 @@ export default function AppTabs() {
   };
 
   return (
-    <Tabs>
+    // key: expo-router's tab navigator registers its triggers when it mounts - adding
+    // Handleliste/Chat/Kollektiv to the list after the fact (right after creating a
+    // collective) renders buttons the navigator doesn't know about, so taps do nothing
+    // until the app restarts. Remounting when the tab set changes re-registers them.
+    <Tabs key={hasCollective ? 'with-collective' : 'no-collective'}>
       <TabSlot />
       <TabList asChild>
         <TabBar tabs={tabs}>

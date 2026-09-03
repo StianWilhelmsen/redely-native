@@ -10,6 +10,7 @@ import { CelebrationOverlay } from '@/components/celebration/celebration-overlay
 import { useCelebration } from '@/components/celebration/use-celebration';
 import { ErrorState } from '@/components/error-state';
 import { NotificationPrompt } from '@/components/notification-prompt';
+import { PaywallSheet } from '@/components/subscription/paywall-sheet';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ActivitySection } from '@/components/home/activity-section';
 import { GetStartedSection } from '@/components/home/get-started-section';
@@ -21,7 +22,7 @@ import { PillSegmentedControl } from '@/components/pill-segmented-control';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { buildTaskGroups, TaskGroups, type TaskViewMode } from '@/components/tasks/task-groups';
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
@@ -52,6 +53,13 @@ export default function HomeScreen() {
     api.starterPacks
   );
   const { data: members } = useSWR(hasCollective ? 'members' : null, api.members);
+  // Every write in the app 402s while the subscription is lapsed - without this banner
+  // that surfaced only as buttons silently doing nothing (optimistic updates rolled
+  // back), which reads as the app being broken rather than the subscription needing
+  // attention. Refreshed on focus-revalidate and by the SUBSCRIPTION_UPDATED socket
+  // event the moment a purchase lands.
+  const { data: billing } = useSWR(hasCollective ? 'billing-status' : null, api.billingStatus);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   // Only a genuinely brand-new (solo) collective gets the full onboarding panel
   // (starter packs + invite code) - for an existing multi-member collective, an
   // empty task list more likely means "just cleared it out," and re-showing the
@@ -153,8 +161,10 @@ export default function HomeScreen() {
       if (next && !willClearView) {
         celebrate('Godt jobba! 🎉');
       }
-    } catch {
-      // rollbackOnError already restored the previous state.
+    } catch (err) {
+      // rollbackOnError restored the list - but the failure itself must be said out loud.
+      // Swallowing it made a lapsed subscription's 402 look like the checkbox being broken.
+      Alert.alert('Kunne ikke lagre', err instanceof Error ? err.message : 'Prøv igjen senere.');
     }
   };
 
@@ -178,8 +188,8 @@ export default function HomeScreen() {
       );
       globalMutate('activity');
       globalMutate('weekly-stats');
-    } catch {
-      // rollbackOnError already restored the previous state.
+    } catch (err) {
+      Alert.alert('Kunne ikke lagre', err instanceof Error ? err.message : 'Prøv igjen senere.');
     }
   };
 
@@ -229,6 +239,29 @@ export default function HomeScreen() {
         }
         refreshing={refreshing}
         onRefresh={handleRefresh}>
+        {billing?.readOnly && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abonnementet er utløpt, velg plan"
+            onPress={() => setPaywallVisible(true)}
+            style={({ pressed }) => [
+              styles.subscriptionBanner,
+              { backgroundColor: `${theme.danger}14`, borderColor: `${theme.danger}45` },
+              pressed && { opacity: 0.8 },
+            ]}>
+            <Ionicons name="lock-closed" size={20} color={theme.danger} />
+            <View style={styles.subscriptionBannerText}>
+              <ThemedText type="smallBold">Abonnementet er utløpt</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Dere kan se alt, men ikke gjøre endringer før kollektivet har en aktiv plan.
+              </ThemedText>
+            </View>
+            <ThemedText type="smallBold" themeColor="brand">
+              Velg plan
+            </ThemedText>
+          </Pressable>
+        )}
+
         {tasksError ? (
           <ErrorState message="Klarte ikke å hente oppgaver." onRetry={() => mutateTasks()} />
         ) : tasksLoading ? (
@@ -309,6 +342,7 @@ export default function HomeScreen() {
 
       <CelebrationOverlay message={message} burstKey={burstKey} onDismiss={dismiss} />
       <NotificationPrompt />
+      <PaywallSheet visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </View>
   );
 }
@@ -319,6 +353,20 @@ const styles = StyleSheet.create({
   },
   emptyNudge: {
     paddingVertical: Spacing.three,
+  },
+  subscriptionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radii.card,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+  },
+  subscriptionBannerText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   fab: {
     position: 'absolute',

@@ -130,6 +130,8 @@ function ShoppingAddBar() {
       await api.createShoppingItem(name);
       setNewItemName('');
       await mutateItems();
+    } catch (err) {
+      Alert.alert('Kunne ikke legge til', err instanceof Error ? err.message : 'Prøv igjen senere.');
     } finally {
       setAdding(false);
     }
@@ -189,6 +191,8 @@ function ShoppingListView() {
           revalidate: false,
         }
       );
+    } catch (err) {
+      Alert.alert('Kunne ikke lagre', err instanceof Error ? err.message : 'Prøv igjen senere.');
     } finally {
       setBusyId(null);
     }
@@ -208,6 +212,8 @@ function ShoppingListView() {
           revalidate: false,
         }
       );
+    } catch (err) {
+      Alert.alert('Kunne ikke slette', err instanceof Error ? err.message : 'Prøv igjen senere.');
     } finally {
       setBusyId(null);
     }
@@ -235,6 +241,8 @@ function ShoppingListView() {
                 revalidate: false,
               }
             );
+          } catch (err) {
+            Alert.alert('Kunne ikke tømme', err instanceof Error ? err.message : 'Prøv igjen senere.');
           } finally {
             setClearing(false);
           }
@@ -372,8 +380,8 @@ function ExpensesView({ onPaid }: { onPaid: (message: string) => void }) {
           revalidate: false,
         }
       );
-    } catch {
-      // rollbackOnError already restored the previous state.
+    } catch (err) {
+      Alert.alert('Kunne ikke lagre', err instanceof Error ? err.message : 'Prøv igjen senere.');
     }
   };
 

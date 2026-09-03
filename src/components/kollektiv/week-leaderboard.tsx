@@ -1,57 +1,71 @@
-import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AvatarBadge } from '@/components/avatar-badge';
-import { FlatDivider } from '@/components/flat-divider';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import type { UserStats, WeeklyQuickActions } from '@/types/api';
+import { FontFamily, Spacing } from '@/constants/theme';
+import type { WeeklyQuickActions, WeeklyStats, WeeklyTask } from '@/types/api';
 
-/** This week's points leaderboard - replaces the old month-scoped, completion-count
- *  leaderboard, so every number on this page now tells the same week's story. */
-export function WeekLeaderboard({
-  leaderboard,
-  quickActionsByUser,
-}: {
-  leaderboard: UserStats[];
+type Props = {
+  leaderboard: WeeklyStats['leaderboard'];
+  tasks: WeeklyTask[];
   quickActionsByUser: WeeklyQuickActions[];
-}) {
-  const theme = useTheme();
+  meId: number | undefined;
+};
 
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+export function WeekLeaderboard({ leaderboard, tasks, quickActionsByUser, meId }: Props) {
   return (
     <View>
       {leaderboard.map((member, index) => {
-        const isMvp = member.badges.some((badge) => badge.code === 'MVP');
-        const quickCount = quickActionsByUser.find((entry) => entry.userId === member.userId)?.count ?? 0;
+        const taskCount = tasks.filter(
+          (task) => task.assigneeUserId === member.userId && task.completed
+        ).length;
+        const quickCount =
+          quickActionsByUser.find((entry) => entry.userId === member.userId)?.count ?? 0;
+        const hasDone = taskCount > 0 || quickCount > 0;
+
         return (
-          <Fragment key={member.userId}>
-            {index > 0 && <FlatDivider />}
-            <View style={styles.row}>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.rank}>
-                {index + 1}
-              </ThemedText>
-              <AvatarBadge userId={member.userId} name={member.name} pictureUrl={member.pictureUrl} size={34} />
-              <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <ThemedText type="smallBold" numberOfLines={1} style={styles.name}>
-                    {member.name}
+          <View key={member.userId} style={styles.row}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.rank}>
+              {index + 1}
+            </ThemedText>
+
+            <AvatarBadge
+              userId={member.userId}
+              name={member.name}
+              pictureUrl={member.pictureUrl}
+              shape="circle"
+              size={36}
+            />
+
+            <View style={styles.text}>
+              <ThemedText type="smallBold" numberOfLines={1}>
+                {member.name}
+                {member.userId === meId && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {' · deg'}
                   </ThemedText>
-                  {isMvp && (
-                    <View style={[styles.mvpBadge, { backgroundColor: `${theme.brandSecondary}33` }]}>
-                      <ThemedText type="small" style={{ color: theme.brandSecondary }}>
-                        MVP
-                      </ThemedText>
-                    </View>
-                  )}
-                </View>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {quickCount} {quickCount === 1 ? 'småjobb' : 'småjobber'}
-                </ThemedText>
-              </View>
-              <ThemedText type="smallBold">{member.weekPoints} p</ThemedText>
+                )}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {hasDone
+                  ? [
+                      taskCount > 0 ? plural(taskCount, 'oppgave', 'oppgaver') : null,
+                      quickCount > 0 ? plural(quickCount, 'småjobb', 'småjobber') : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : 'Ikke begynt ennå'}
+              </ThemedText>
             </View>
-          </Fragment>
+
+            <ThemedText type="smallBold" style={styles.points}>
+              {member.weekPoints} p
+            </ThemedText>
+          </View>
         );
       })}
     </View>
@@ -60,30 +74,21 @@ export function WeekLeaderboard({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
+    paddingVertical: Spacing.two + Spacing.half,
   },
   rank: {
-    width: 16,
+    width: 12,
+    fontVariant: ['tabular-nums'],
   },
-  info: {
+  text: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  name: {
-    flexShrink: 1,
-  },
-  mvpBadge: {
-    borderRadius: Radii.chip,
-    paddingHorizontal: Spacing.one + 2,
-    paddingVertical: 1,
+  points: {
+    fontFamily: FontFamily.semiBold,
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -1,5 +1,7 @@
-import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import useSWR from 'swr';
 
@@ -12,24 +14,8 @@ import { FontFamily, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { buildSettlements, formatKr, netBalance, type Settlement } from '@/lib/settlements';
 import type { Expense } from '@/types/api';
-
-function formatKr(amount: number): string {
-  return `${Math.round(amount).toLocaleString('nb-NO')} kr`;
-}
-
-/** One person you owe, or who owes you - every open share between the two of you, added up. */
-type Settlement = {
-  personId: number;
-  name: string;
-  pictureUrl: string | null;
-  /** Positive: they owe you. Negative: you owe them. */
-  net: number;
-  /** What the amount is made of, for the line under the name. */
-  reasons: string[];
-  /** Your unpaid shares to them - what "Betal" settles. */
-  shareIds: number[];
-};
 
 export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
   const theme = useTheme();
@@ -38,41 +24,8 @@ export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
   const dingPlayer = useAudioPlayer(require('@/assets/ding-sfx.mp3'));
 
   const allExpenses = expenses ?? [];
-  const meId = me?.id;
-
-  // Both directions in one pass: what you still owe each payer, and what each debtor
-  // still owes you. A person shows up once, with the two netted against each other.
-  const byPerson = new Map<number, Settlement>();
-  const entryFor = (id: number, name: string, pictureUrl: string | null): Settlement => {
-    const existing = byPerson.get(id);
-    if (existing) return existing;
-    const created: Settlement = { personId: id, name, pictureUrl, net: 0, reasons: [], shareIds: [] };
-    byPerson.set(id, created);
-    return created;
-  };
-
-  for (const expense of allExpenses) {
-    const label = expense.description || 'Handletur';
-    for (const share of expense.shares) {
-      if (share.paid) continue;
-
-      if (share.user.id === meId && expense.paidBy && expense.paidBy.id !== meId) {
-        const entry = entryFor(expense.paidBy.id, expense.paidBy.name, expense.paidBy.pictureUrl);
-        entry.net -= share.amountOwed;
-        entry.reasons.push(label);
-        entry.shareIds.push(share.id);
-      } else if (expense.paidBy?.id === meId && share.user.id !== meId) {
-        const entry = entryFor(share.user.id, share.user.name, share.user.pictureUrl);
-        entry.net += share.amountOwed;
-        entry.reasons.push(label);
-      }
-    }
-  }
-
-  const settlements = Array.from(byPerson.values())
-    .filter((s) => Math.round(Math.abs(s.net)) > 0)
-    .sort((a, b) => a.net - b.net);
-  const balance = settlements.reduce((sum, s) => sum + s.net, 0);
+  const settlements = buildSettlements(allExpenses, me?.id);
+  const balance = netBalance(settlements);
 
   const handleSettle = async (settlement: Settlement) => {
     if (settlement.shareIds.length === 0) return;
@@ -123,7 +76,13 @@ export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
 
   return (
     <>
-      <View style={styles.balance}>
+      {/* The number is the summary; the chevron is for when it needs explaining. What a
+          balance is actually made of lives one screen deeper. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Din balanse ${formatKr(Math.abs(balance))}. Se hvem du skylder.`}
+        onPress={() => router.push('/balance')}
+        style={({ pressed }) => [styles.balance, pressed && styles.pressed]}>
         <ThemedText type="small" themeColor="textSecondary">
           Din balanse
         </ThemedText>
@@ -136,11 +95,12 @@ export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
             {balance > 0 ? '+' : balance < 0 ? '−' : ''}
             {formatKr(Math.abs(balance))}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="textSecondary" style={styles.balanceCaption}>
             {balance < 0 ? 'du skylder' : balance > 0 ? 'du har til gode' : 'alt er gjort opp'}
           </ThemedText>
+          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
         </View>
-      </View>
+      </Pressable>
 
       {settlements.length > 0 && (
         <Section title="Gjør opp" variant="eyebrow">
@@ -161,7 +121,7 @@ export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
                       {iOwe ? `Du skylder ${settlement.name}` : `${settlement.name} skylder deg`}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                      {Array.from(new Set(settlement.reasons)).join(' + ')}
+                      {Array.from(new Set(settlement.lines.map((line) => line.description))).join(' + ')}
                     </ThemedText>
                   </View>
                   <View style={styles.settlementAmount}>
@@ -193,7 +153,7 @@ export function BillsView({ onPaid }: { onPaid: (message: string) => void }) {
         ) : (
           <View>
             {allExpenses.slice(0, 20).map((expense) => (
-              <ExpenseRow key={expense.id} expense={expense} meId={meId} />
+              <ExpenseRow key={expense.id} expense={expense} meId={me?.id} />
             ))}
           </View>
         )}
@@ -236,6 +196,9 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 42,
   },
+  balanceCaption: {
+    flex: 1,
+  },
   settlementRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -261,5 +224,8 @@ const styles = StyleSheet.create({
   },
   empty: {
     paddingVertical: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

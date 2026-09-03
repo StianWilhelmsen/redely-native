@@ -243,6 +243,7 @@ function RootNavigator() {
           <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
 
           <Stack.Protected guard={!!collectiveId}>
+            <Stack.Screen name="balance" options={{ presentation: 'card' }} />
             <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
             {/* Full screen, not a sheet: the weekly story is edge-to-edge and paints its
                 own background all the way into the safe areas. */}

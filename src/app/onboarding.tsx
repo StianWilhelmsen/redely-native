@@ -56,26 +56,34 @@ export default function OnboardingScreen() {
   const [joining, setJoining] = useState(false);
   const codeInputRef = useRef<TextInput>(null);
 
+  // The backend stands in the email's local part (or "Ny bruker") when the provider gave
+  // no name at all - both are placeholders, not something to hand back to the user.
+  const emailLocalPart = me?.email?.includes('@') ? me.email.split('@')[0] : undefined;
+  const storedName =
+    me?.name && me.name !== emailLocalPart && me.name !== 'Ny bruker' ? me.name : undefined;
+
   // Sign in with Apple (and Google) already told us the user's name, and App Review
   // guideline 4 forbids asking for it again on top of that - so the field arrives filled
   // in and this step is a confirmation, not a form. Still editable: housemates see this
   // name, and a legal first name isn't always what people go by.
   //
-  // Both sources are the provider's own answer and nothing else. Deliberately *not*
-  // me.name: /api/me invents a placeholder when the provider gave no name (the local part
-  // of the email, which for an Apple private-relay address is "78b674nrtm"), and putting
-  // that in the field is worse than leaving it empty.
+  // Three sources, in order of how close they are to what the provider actually said:
+  // the one-shot capture from the Apple sheet, the session's user_metadata, and finally
+  // the name the backend already stored. The last one needs the guard below - /api/me
+  // invents a placeholder when the provider gave nothing, and prefilling the field with
+  // "78b674nrtm" is worse than leaving it empty.
   useEffect(() => {
     let cancelled = false;
     getRememberedProviderName().then((remembered) => {
       if (cancelled) return;
-      const prefill = firstNameOf(remembered) || firstNameOf(providerName);
+      const prefill =
+        firstNameOf(remembered) || firstNameOf(providerName) || firstNameOf(storedName);
       if (prefill) setFirstName((current) => current || prefill);
     });
     return () => {
       cancelled = true;
     };
-  }, [providerName]);
+  }, [providerName, storedName]);
 
   const applyPickedAsset = (asset: ImagePicker.ImagePickerAsset) => {
     const ext = asset.mimeType?.split('/')[1] ?? asset.uri.split('.').pop() ?? 'jpg';

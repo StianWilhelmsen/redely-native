@@ -198,9 +198,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { mutate } = useSWRConfig();
 
   const signOut = useCallback(async () => {
-    // Must happen before clearSession() - clearing the session needs a still-valid
-    // one to authenticate the request. Best-effort: sign-out proceeds either way.
-    await clearPushToken();
+    // Releasing the device's push token has to go first, because the request needs a
+    // session that still works. But it also talks to a backend that may be waking from
+    // sleep, and awaiting that outright left the button doing nothing for the best part
+    // of a minute - which reads as broken, so people press it again. Two seconds, then
+    // sign out regardless: a stale token is corrected the next time anyone signs in on
+    // this device (see UserController#registerPushToken).
+    await Promise.race([
+      clearPushToken(),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
     await clearSession();
     // Purge the SWR cache: without this, the next account to sign in on this device is
     // served the previous account's cached data ('me' included) while revalidation is

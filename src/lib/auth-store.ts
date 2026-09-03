@@ -79,5 +79,12 @@ export async function getValidIdToken(): Promise<string> {
 }
 
 export async function clearSession() {
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Revoking the session server-side needs the network, and it must not be able to
+    // trap someone in a signed-in app: falling back to a local sign-out always clears
+    // the tokens on this device, and the refresh token expires on its own.
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  }
 }

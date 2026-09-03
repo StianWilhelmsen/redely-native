@@ -217,16 +217,24 @@ function RootNavigator() {
     );
   }
 
-  const needsOnboarding = status === 'signedIn' && !!me && !me.onboarded;
+  // Onboarding now covers both halves of getting started: who you are, then which
+  // collective you're in. Neither is optional, so a profile without a collective (a fresh
+  // sign-up mid-flow, or someone who just left one) resumes at the second step rather
+  // than landing in an app where every tab needs a collective to work.
+  const needsOnboarding = status === 'signedIn' && !!me && (!me.onboarded || !me.collective);
 
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* Outside every guard on purpose: the consent checkbox in onboarding links to
+            these documents, so they have to be reachable before onboarding is finished -
+            which is also what guideline 5.1.1(i) asks for. */}
+        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+
         <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
-          <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
 
           <Stack.Protected guard={!!collectiveId}>
             <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />

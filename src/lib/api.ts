@@ -127,13 +127,11 @@ export const api = {
   },
   completeOnboarding: (input: {
     name: string;
-    age?: number;
     acceptedTerms: boolean;
     picture?: { uri: string; name: string; type: string };
   }) => {
     const form = new FormData();
     form.append('name', input.name);
-    if (input.age != null) form.append('age', String(input.age));
     form.append('acceptedTerms', String(input.acceptedTerms));
     if (input.picture) form.append('picture', input.picture as unknown as Blob);
     return request<Me>('/api/me/onboarding', { method: 'PATCH', body: form });

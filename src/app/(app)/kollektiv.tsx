@@ -83,7 +83,6 @@ export default function KollektivScreen() {
             pictureUrl={me.collective.pictureUrl}
             memberCount={weeklyStats.leaderboard.length}
             weekNumber={isoWeekNumber(weeklyStats.weekStart)}
-            onSettingsPress={() => router.push('/collective-settings')}
           />
 
           <View style={[styles.rule, { backgroundColor: theme.border }]} />

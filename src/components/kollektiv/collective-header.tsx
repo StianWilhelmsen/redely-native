@@ -1,5 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -11,16 +10,11 @@ type Props = {
   pictureUrl: string | null;
   memberCount: number;
   weekNumber: number;
-  onSettingsPress: () => void;
 };
 
-export function CollectiveHeader({
-  name,
-  pictureUrl,
-  memberCount,
-  weekNumber,
-  onSettingsPress,
-}: Props) {
+/** Identity only - settings for the collective are reached from Innstillinger, so this
+ *  header has nothing to act on and stays a label. */
+export function CollectiveHeader({ name, pictureUrl, memberCount, weekNumber }: Props) {
   const theme = useTheme();
 
   return (
@@ -34,14 +28,6 @@ export function CollectiveHeader({
           {memberCount} {memberCount === 1 ? 'medlem' : 'medlemmer'} · uke {weekNumber}
         </ThemedText>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Kollektivinnstillinger"
-        onPress={onSettingsPress}
-        hitSlop={Spacing.three}
-        style={({ pressed }) => pressed && styles.pressed}>
-        <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
-      </Pressable>
     </View>
   );
 }
@@ -61,8 +47,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     fontSize: 22,
     lineHeight: 28,
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

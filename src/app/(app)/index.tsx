@@ -8,26 +8,28 @@ import useSWR, { useSWRConfig } from 'swr';
 
 import { CelebrationOverlay } from '@/components/celebration/celebration-overlay';
 import { useCelebration } from '@/components/celebration/use-celebration';
+import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
-import { NotificationPrompt } from '@/components/notification-prompt';
-import { PaywallSheet } from '@/components/subscription/paywall-sheet';
-import { RefreshSpinner } from '@/components/refresh-spinner';
-import { ActivitySection } from '@/components/home/activity-section';
-import { GetStartedSection } from '@/components/home/get-started-section';
-import { OnboardingSection } from '@/components/home/onboarding-section';
+import { CollectiveToday } from '@/components/home/collective-today';
+import { MyTaskList } from '@/components/home/my-task-list';
 import { QuickActionsSection } from '@/components/home/quick-actions-section';
-import { StatRow } from '@/components/home/stat-row';
-import { WeeklyGoalSection } from '@/components/home/weekly-goal-section';
+import { TodayStats } from '@/components/home/today-stats';
+import { WeeklyGoalBar } from '@/components/home/weekly-goal-bar';
+import { NotificationPrompt } from '@/components/notification-prompt';
 import { PillSegmentedControl } from '@/components/pill-segmented-control';
+import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
-import { buildTaskGroups, TaskGroups, type TaskViewMode } from '@/components/tasks/task-groups';
+import { Section } from '@/components/section';
+import { PaywallSheet } from '@/components/subscription/paywall-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, Radii, Spacing } from '@/constants/theme';
+import { BottomTabInset, Control, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
-import { addDays, parseDueDateLocal, localDateKey, startOfWeekMonday } from '@/lib/date-utils';
+import { addDays, localDateKey, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
 import type { Task } from '@/types/api';
+
+type ViewMode = 'today' | 'week';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -48,26 +50,15 @@ export default function HomeScreen() {
     hasCollective ? 'quick-actions' : null,
     api.quickActions
   );
-  const { data: starterPacks } = useSWR(
-    hasCollective && tasks?.length === 0 ? 'starter-packs' : null,
-    api.starterPacks
-  );
   const { data: members } = useSWR(hasCollective ? 'members' : null, api.members);
   // Every write in the app 402s while the subscription is lapsed - without this banner
-  // that surfaced only as buttons silently doing nothing (optimistic updates rolled
-  // back), which reads as the app being broken rather than the subscription needing
-  // attention. Refreshed on focus-revalidate and by the SUBSCRIPTION_UPDATED socket
-  // event the moment a purchase lands.
+  // that surfaced only as buttons silently doing nothing, which reads as the app being
+  // broken rather than the subscription needing attention.
   const { data: billing } = useSWR(hasCollective ? 'billing-status' : null, api.billingStatus);
-  const [paywallVisible, setPaywallVisible] = useState(false);
-  // Only a genuinely brand-new (solo) collective gets the full onboarding panel
-  // (starter packs + invite code) - for an existing multi-member collective, an
-  // empty task list more likely means "just cleared it out," and re-showing the
-  // whole first-run flow (invite code and all) would read as the app resetting.
-  const isBrandNewCollective = (members?.length ?? 0) <= 1;
 
-  const [mode, setMode] = useState<TaskViewMode>('today');
+  const [mode, setMode] = useState<ViewMode>('today');
   const [refreshing, setRefreshing] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const { message, burstKey, celebrate, dismiss } = useCelebration();
 
   const today = new Date();
@@ -90,6 +81,9 @@ export default function HomeScreen() {
   const myWeekTasks = collectiveWeekTasks.filter(isMine);
   const myTodayTasks = allTasks.filter((t) => isDueToday(t) && isMine(t));
   const myTodayOpenCount = myTodayTasks.filter((t) => !t.completed).length;
+
+  const showingToday = mode === 'today';
+  const myVisibleTasks = showingToday ? myTodayTasks : myWeekTasks;
 
   const prevGoalReached = useRef<boolean | null>(null);
   const prevTodayOpenCount = useRef<number | null>(null);
@@ -120,6 +114,7 @@ export default function HomeScreen() {
       mutateTasks(),
       globalMutate('activity'),
       globalMutate('weekly-stats'),
+      globalMutate('members'),
       mutateQuickActions(),
     ]);
     setRefreshing(false);
@@ -137,14 +132,11 @@ export default function HomeScreen() {
       notifyPlayer.play();
     }
 
-    let willClearView = false;
     try {
       await mutateTasks(
         async (current) => {
           const updated = await api.setTaskCompleted(task.id, next);
-          const updatedList = (current ?? []).map((t) => (t.id === task.id ? updated : t));
-          willClearView = next && buildTaskGroups(updatedList, mode).length === 0;
-          return updatedList;
+          return (current ?? []).map((t) => (t.id === task.id ? updated : t));
         },
         {
           optimisticData: (current) =>
@@ -155,12 +147,7 @@ export default function HomeScreen() {
       );
       globalMutate('activity');
       globalMutate('weekly-stats');
-      // Skip the "Godt jobba!" toast when this was the last open task for the
-      // current view - the "Ferdig for i dag/uka" empty state already covers it,
-      // and stacking both reads as two toasts firing at once.
-      if (next && !willClearView) {
-        celebrate('Godt jobba! 🎉');
-      }
+      if (next) celebrate('Godt jobba! 🎉');
     } catch (err) {
       // rollbackOnError restored the list - but the failure itself must be said out loud.
       // Swallowing it made a lapsed subscription's 402 look like the checkbox being broken.
@@ -209,24 +196,12 @@ export default function HomeScreen() {
     );
   }
 
-  if (!hasCollective) {
-    return (
-      <ScreenScroll
-        eyebrow="Velkommen"
-        title={`Hei, ${me.name.split(' ')[0]}`}
-        subtitle="Du mangler bare ett steg — et kollektiv å dele hverdagen med."
-        refreshing={refreshing}
-        onRefresh={handleRefresh}>
-        <OnboardingSection onDone={() => mutateMe()} />
-      </ScreenScroll>
-    );
-  }
-
   return (
     <View style={styles.root}>
       <ScreenScroll
-        eyebrow={me.collective!.name}
+        eyebrow={me.collective?.name}
         title="Hjem"
+        headerRight={<CollectiveAvatar pictureUrl={me.collective?.pictureUrl} size={44} />}
         headerExtra={
           <PillSegmentedControl
             options={[
@@ -247,7 +222,7 @@ export default function HomeScreen() {
             style={({ pressed }) => [
               styles.subscriptionBanner,
               { backgroundColor: `${theme.danger}14`, borderColor: `${theme.danger}45` },
-              pressed && { opacity: 0.8 },
+              pressed && styles.pressed,
             ]}>
             <Ionicons name="lock-closed" size={20} color={theme.danger} />
             <View style={styles.subscriptionBannerText}>
@@ -268,14 +243,9 @@ export default function HomeScreen() {
           <RefreshSpinner active />
         ) : (
           <>
-            <StatRow
+            <TodayStats
               stats={[
-                {
-                  label: 'I dag',
-                  value: myTodayOpenCount,
-                  caption: 'for deg',
-                  emphasize: true,
-                },
+                { label: 'I dag', value: myTodayOpenCount, caption: 'for deg', emphasize: true },
                 {
                   label: 'Mine',
                   value: myWeekTasks.filter((t) => !t.completed).length,
@@ -289,37 +259,43 @@ export default function HomeScreen() {
               ]}
             />
 
-            {weeklyStats && <WeeklyGoalSection stats={weeklyStats} />}
+            {weeklyStats && <WeeklyGoalBar stats={weeklyStats} />}
 
-            <TaskGroups
-              tasks={allTasks}
-              mode={mode}
-              onToggle={handleToggleTask}
-              onActions={(task) => router.push({ pathname: '/tasks/new', params: { id: String(task.id) } })}
-              emptyTitle={mode === 'today' ? 'Ferdig for i dag' : 'Ferdig for uka'}
-              emptyText={
-                mode === 'today'
-                  ? 'Ingen oppgaver igjen i dag. 🎉'
-                  : 'Ingen oppgaver igjen denne uka. 🎉'
-              }
-            />
+            <Section
+              title={showingToday ? 'Dine oppgaver i dag' : 'Dine oppgaver denne uken'}
+              variant="eyebrow">
+              <MyTaskList
+                tasks={myVisibleTasks}
+                onToggle={handleToggleTask}
+                onOpen={(task) =>
+                  router.push({ pathname: '/tasks/new', params: { id: String(task.id) } })
+                }
+                emptyText={
+                  showingToday
+                    ? 'Ingen oppgaver igjen i dag. 🎉'
+                    : 'Ingen oppgaver igjen denne uka. 🎉'
+                }
+              />
+            </Section>
+
+            {members && members.length > 1 && (
+              <Section
+                title="Resten av kollektivet"
+                meta={showingToday ? 'i dag' : 'denne uken'}
+                variant="eyebrow">
+                <CollectiveToday
+                  members={members}
+                  tasks={allTasks}
+                  activity={activity}
+                  meId={me.id}
+                  periodEnd={showingToday ? today : weekEnd}
+                  periodLabel={showingToday ? 'i dag' : 'denne uken'}
+                />
+              </Section>
+            )}
 
             {quickActions && quickActions.length > 0 && (
               <QuickActionsSection actions={quickActions} onComplete={handleQuickAction} />
-            )}
-
-            {activity && <ActivitySection events={activity} />}
-
-            {allTasks.length === 0 && starterPacks && isBrandNewCollective && (
-              <GetStartedSection starterPacks={starterPacks} onApplied={() => mutateTasks()} />
-            )}
-
-            {allTasks.length === 0 && !isBrandNewCollective && (
-              <Pressable onPress={() => router.push('/starter-pack')} style={styles.emptyNudge}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Tomt for oppgaver akkurat nå. Bruk en startpakke for å komme i gang →
-                </ThemedText>
-              </Pressable>
             )}
           </>
         )}
@@ -351,17 +327,13 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  emptyNudge: {
-    paddingVertical: Spacing.three,
-  },
   subscriptionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     borderWidth: 1,
-    borderRadius: Radii.card,
+    borderRadius: Control.radius,
     padding: Spacing.three,
-    marginBottom: Spacing.three,
   },
   subscriptionBannerText: {
     flex: 1,
@@ -386,5 +358,8 @@ const styles = StyleSheet.create({
   fabPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.96 }],
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

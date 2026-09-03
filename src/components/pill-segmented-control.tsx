@@ -5,6 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePalette } from '@/theme/palette-context';
 
 export type SegmentOption<T extends string> = { key: T; label: string };
 
@@ -17,7 +18,14 @@ type Props<T extends string> = {
 /** iOS-style capsule segmented control: a lighter pill that slides to the selected option. */
 export function PillSegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
   const theme = useTheme();
+  const { scheme } = usePalette();
   const activeIndex = Math.max(0, options.findIndex((o) => o.key === value));
+
+  // The selected pill is a light surface in both schemes - in dark that means inverting
+  // it against the track rather than lifting it a shade, which at these sizes is the
+  // difference between "obviously selected" and "possibly selected".
+  const pillColor = scheme === 'dark' ? theme.text : theme.background;
+  const pillLabelColor = scheme === 'dark' ? theme.background : theme.text;
 
   const [rowWidth, setRowWidth] = useState(0);
   const segmentWidth = rowWidth / options.length;
@@ -49,7 +57,7 @@ export function PillSegmentedControl<T extends string>({ options, value, onChang
             style={[
               styles.indicator,
               indicatorStyle,
-              { width: segmentWidth, backgroundColor: theme.backgroundElement },
+              { width: segmentWidth, backgroundColor: pillColor },
             ]}
           />
         )}
@@ -57,7 +65,10 @@ export function PillSegmentedControl<T extends string>({ options, value, onChang
           const active = option.key === value;
           return (
             <Pressable key={option.key} onPress={() => onChange(option.key)} style={styles.segment}>
-              <ThemedText type={active ? 'smallBold' : 'small'} themeColor={active ? 'text' : 'textSecondary'}>
+              <ThemedText
+                type={active ? 'smallBold' : 'small'}
+                style={active ? { color: pillLabelColor } : undefined}
+                themeColor={active ? undefined : 'textSecondary'}>
                 {option.label}
               </ThemedText>
             </Pressable>

@@ -13,8 +13,7 @@ export type FlatStatItem = {
   accent?: boolean;
 };
 
-/** Unboxed 2-4 column stat row with hairline dividers between cells - the flat counterpart
- *  to the boxed, shadowed `home/stat-row.tsx`. */
+/** Unboxed 2-4 column stat row with hairline dividers between cells. */
 export function FlatStatRow({ items }: { items: FlatStatItem[] }) {
   const theme = useTheme();
 

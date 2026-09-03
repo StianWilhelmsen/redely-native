@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Hatching } from '@/components/hatched-placeholder';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
@@ -10,12 +10,16 @@ type Props = {
   size?: number;
 };
 
-/** The collective's own avatar - its picture when it has one, otherwise a plain house
- *  icon. Used anywhere the collective (not a specific member) needs a visual identity:
- *  the Kollektiv header, the group chat header, collective settings. */
+/**
+ * The collective's own avatar - its picture when it has one, otherwise the hatched
+ * placeholder that stands in for an unset photo everywhere else in the app. A rounded
+ * square, deliberately unlike the circles used for people, so a glance tells you whether
+ * you are looking at a household or a housemate.
+ */
 export function CollectiveAvatar({ pictureUrl, size = 44 }: Props) {
   const theme = useTheme();
   const [failed, setFailed] = useState(false);
+  const borderRadius = size * 0.32;
 
   useEffect(() => {
     setFailed(false);
@@ -26,7 +30,7 @@ export function CollectiveAvatar({ pictureUrl, size = 44 }: Props) {
       <Image
         source={{ uri: pictureUrl }}
         onError={() => setFailed(true)}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
+        style={{ width: size, height: size, borderRadius }}
       />
     );
   }
@@ -35,9 +39,9 @@ export function CollectiveAvatar({ pictureUrl, size = 44 }: Props) {
     <View
       style={[
         styles.fallback,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: `${theme.brand}22` },
+        { width: size, height: size, borderRadius, backgroundColor: theme.backgroundElement },
       ]}>
-      <Ionicons name="home" size={size * 0.45} color={theme.brand} />
+      <Hatching size={size} color={theme.border} />
     </View>
   );
 }
@@ -46,5 +50,6 @@ const styles = StyleSheet.create({
   fallback: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
 });

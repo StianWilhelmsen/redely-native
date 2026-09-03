@@ -10,17 +10,20 @@ type SectionProps = ViewProps & {
   /** Right-aligned next to the title - plain text renders as a muted caption,
    *  anything else (e.g. a "Se alle" link) renders as-is. */
   meta?: string | ReactNode;
+  /** 'eyebrow' is the quieter uppercase label used where the section is one band of
+   *  several on a scrolling screen, rather than a heading in its own right. */
+  variant?: 'heading' | 'eyebrow';
 };
 
 /**
  * A screen section: heading sits directly on the background, content unboxed.
  * This — not a card around everything — is the default way to group content.
  */
-export function Section({ title, meta, children, style, ...rest }: SectionProps) {
+export function Section({ title, meta, children, style, variant = 'heading', ...rest }: SectionProps) {
   return (
     <View style={[styles.section, style]} {...rest}>
       <View style={styles.header}>
-        <ThemedText type="heading">{title}</ThemedText>
+        <ThemedText type={variant === 'eyebrow' ? 'eyebrow' : 'heading'}>{title}</ThemedText>
         {meta &&
           (typeof meta === 'string' ? (
             <ThemedText type="small" themeColor="textSecondary">

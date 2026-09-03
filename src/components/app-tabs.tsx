@@ -2,13 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { Tabs, TabList, TabSlot, TabTrigger, type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { useUnreadChat, useUnreadPayments } from '@/hooks/use-unread';
@@ -17,23 +16,21 @@ type AppTab = {
   name: string;
   href: '/' | '/shopping' | '/chat' | '/kollektiv' | '/me';
   label: string;
+  /** Outline when idle, solid when selected - the weight change is what marks the tab,
+   *  now that there is no pill sliding behind it. */
   icon: keyof typeof Ionicons.glyphMap;
+  iconActive: keyof typeof Ionicons.glyphMap;
 };
 
 const TABS: AppTab[] = [
-  { name: 'home', href: '/', label: 'Hjem', icon: 'home-outline' },
-  { name: 'shopping', href: '/shopping', label: 'Handleliste', icon: 'cart-outline' },
-  { name: 'chat', href: '/chat', label: 'Chat', icon: 'chatbubble-outline' },
-  { name: 'kollektiv', href: '/kollektiv', label: 'Kollektiv', icon: 'people-outline' },
-  { name: 'me', href: '/me', label: 'Meg', icon: 'person-outline' },
+  { name: 'home', href: '/', label: 'Hjem', icon: 'home-outline', iconActive: 'home' },
+  { name: 'shopping', href: '/shopping', label: 'Handle', icon: 'cart-outline', iconActive: 'cart' },
+  { name: 'chat', href: '/chat', label: 'Chat', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+  { name: 'kollektiv', href: '/kollektiv', label: 'Kollektiv', icon: 'people-outline', iconActive: 'people' },
+  { name: 'me', href: '/me', label: 'Meg', icon: 'person-outline', iconActive: 'person' },
 ];
 
 const COLLECTIVE_ONLY_PATHS = ['/shopping', '/chat', '/kollektiv'];
-
-function activeIndexForPath(pathname: string, tabs: AppTab[]): number {
-  const index = tabs.findIndex((tab) => tab.href !== '/' && pathname.startsWith(tab.href));
-  return index >= 0 ? index : 0;
-}
 
 export default function AppTabs() {
   const pathname = usePathname();
@@ -90,7 +87,10 @@ export default function AppTabs() {
         <TabBar tabs={tabs}>
           {tabs.map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
-              <TabButton icon={tab.icon} showDot={!!showDot[tab.name]}>
+              <TabButton
+                icon={tab.icon}
+                iconActive={tab.iconActive}
+                showDot={!!showDot[tab.name]}>
                 {tab.label}
               </TabButton>
             </TabTrigger>
@@ -105,17 +105,26 @@ function TabButton({
   children,
   isFocused,
   icon,
+  iconActive,
   showDot,
   ...props
-}: TabTriggerSlotProps & { icon: keyof typeof Ionicons.glyphMap; showDot?: boolean }) {
+}: TabTriggerSlotProps & {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconActive: keyof typeof Ionicons.glyphMap;
+  showDot?: boolean;
+}) {
   const theme = useTheme();
 
   return (
     <Pressable {...props} style={styles.tabButton}>
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={22} color={isFocused ? theme.text : theme.textSecondary} />
+        <Ionicons
+          name={isFocused ? iconActive : icon}
+          size={22}
+          color={isFocused ? theme.text : theme.textSecondary}
+        />
         {showDot && (
-          <View style={[styles.dot, { backgroundColor: theme.danger, borderColor: theme.backgroundElement }]} />
+          <View style={[styles.dot, { backgroundColor: theme.danger, borderColor: theme.background }]} />
         )}
       </View>
       <ThemedText
@@ -129,57 +138,23 @@ function TabButton({
   );
 }
 
-const INDICATOR_INSET = Spacing.one;
 const TAB_HEIGHT = 44;
 
-function TabBar({ tabs, ...props }: TabListProps & { tabs: AppTab[] }) {
+function TabBar({ ...props }: TabListProps & { tabs: AppTab[] }) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const pathname = usePathname();
-  const activeIndex = activeIndexForPath(pathname, tabs);
-
-  const [barWidth, setBarWidth] = useState(0);
-  const tabWidth = barWidth / tabs.length;
-  const translateX = useSharedValue(0);
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    setBarWidth(e.nativeEvent.layout.width);
-  };
-
-  useEffect(() => {
-    if (barWidth === 0) return;
-    translateX.value = withTiming(tabWidth * activeIndex + INDICATOR_INSET, {
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, barWidth]);
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
 
   return (
     <View
       style={[
         styles.bar,
         {
-          backgroundColor: theme.backgroundElement,
+          backgroundColor: theme.background,
           borderTopColor: theme.border,
           paddingBottom: Math.max(insets.bottom, Spacing.two),
         },
       ]}>
-      <View {...props} onLayout={handleLayout} style={styles.row}>
-        {barWidth > 0 && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.indicator,
-              indicatorStyle,
-              { width: tabWidth - INDICATOR_INSET * 2, backgroundColor: theme.backgroundSelected },
-            ]}
-          />
-        )}
+      <View {...props} style={styles.row}>
         {props.children}
       </View>
     </View>
@@ -193,13 +168,6 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-  },
-  indicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: TAB_HEIGHT,
-    borderRadius: Radii.pill,
   },
   tabButton: {
     flex: 1,

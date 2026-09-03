@@ -11,7 +11,7 @@ import Animated, {
 
 import { Section } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Control, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { QuickActionIcons } from '@/lib/quick-action-icons';
 import type { QuickAction } from '@/types/api';
@@ -21,21 +21,30 @@ type Props = {
   onComplete: (key: string) => Promise<void>;
 };
 
+/**
+ * The small, repeatable chores nobody schedules - taking the bins out, wiping the
+ * counter. They are not tasks: there is nothing to tick off and nothing to assign, only
+ * a tally of how often each has been done this week.
+ */
 export function QuickActionsSection({ actions, onComplete }: Props) {
-  const weekTotal = actions.reduce((sum, a) => sum + a.countThisWeek, 0);
-
   return (
-    <Section title="Småoppgaver" meta={weekTotal > 0 ? `${weekTotal} denne uka` : undefined}>
+    <Section title="Småoppgaver" meta="trykk for å telle" variant="eyebrow">
       <View style={styles.grid}>
         {actions.map((action) => (
-          <QuickActionChip key={action.key} action={action} onComplete={onComplete} />
+          <QuickActionCard key={action.key} action={action} onComplete={onComplete} />
         ))}
       </View>
     </Section>
   );
 }
 
-function QuickActionChip({ action, onComplete }: { action: QuickAction; onComplete: (key: string) => Promise<void> }) {
+function QuickActionCard({
+  action,
+  onComplete,
+}: {
+  action: QuickAction;
+  onComplete: (key: string) => Promise<void>;
+}) {
   const theme = useTheme();
   const scale = useSharedValue(1);
   const [burst, setBurst] = useState(false);
@@ -68,30 +77,34 @@ function QuickActionChip({ action, onComplete }: { action: QuickAction; onComple
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${action.title}, gjort ${action.countThisWeek} ganger denne uka`}
       onPress={handlePress}
       style={({ pressed }) => [
-        styles.chip,
+        styles.card,
         { backgroundColor: theme.backgroundElement },
         pressed && { backgroundColor: theme.backgroundSelected },
       ]}>
-      <Animated.View style={[styles.chipInner, animatedStyle]}>
+      <Animated.View style={animatedStyle}>
         {QuickActionIcons[action.key] ? (
           <Image source={QuickActionIcons[action.key]} style={styles.icon} contentFit="contain" />
         ) : (
           <ThemedText style={styles.emoji}>{action.emoji}</ThemedText>
         )}
-        <ThemedText type="small" style={styles.chipTitle} numberOfLines={3}>
-          {action.title}
-        </ThemedText>
       </Animated.View>
 
-      {action.countThisWeek > 0 && (
-        <View style={[styles.countBadge, { backgroundColor: `${theme.brand}1F` }]}>
-          <ThemedText type="smallBold" themeColor="brand" style={styles.countText}>
-            {action.countThisWeek}
-          </ThemedText>
-        </View>
-      )}
+      <ThemedText type="smallBold" numberOfLines={2} style={styles.title}>
+        {action.title}
+      </ThemedText>
+
+      {/* Always shown, zero included: the point of the tile is the running count, and a
+          badge that appears only after the first tap hides what the tile is for. */}
+      <ThemedText
+        type="small"
+        themeColor={action.countThisWeek > 0 ? 'brand' : 'textSecondary'}
+        style={styles.count}>
+        ×{action.countThisWeek}
+      </ThemedText>
 
       {burst && <PlusOneBurst color={theme.brand} />}
     </Pressable>
@@ -123,45 +136,32 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
+    gap: Spacing.two + Spacing.half,
   },
-  chip: {
+  card: {
     flexBasis: '47%',
     flexGrow: 1,
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.two,
-    alignItems: 'center',
-    justifyContent: 'center',
+    minHeight: 104,
+    borderRadius: Control.radius,
+    padding: Spacing.three,
+    justifyContent: 'space-between',
   },
-  chipInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.one,
+  icon: {
+    width: 30,
+    height: 30,
   },
   emoji: {
     fontSize: 26,
     lineHeight: 32,
   },
-  icon: {
-    width: 32,
-    height: 32,
+  title: {
+    marginTop: Spacing.three,
   },
-  chipTitle: {
-    textAlign: 'center',
-  },
-  countBadge: {
+  count: {
     position: 'absolute',
-    top: Spacing.one,
-    right: Spacing.one,
-    borderRadius: Spacing.three,
-    minWidth: 22,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    alignItems: 'center',
-  },
-  countText: {
-    fontSize: 12,
+    top: Spacing.two + Spacing.half,
+    right: Spacing.three,
+    fontVariant: ['tabular-nums'],
   },
   burst: {
     position: 'absolute',

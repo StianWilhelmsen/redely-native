@@ -126,7 +126,7 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.six }]}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled">
-        <Section title="Konto">
+        <Section title="Konto" variant="eyebrow">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             {editingName ? (
               <View style={styles.editColumn}>
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
         </Section>
 
         {me?.collective && (
-          <Section title="Kollektiv">
+          <Section title="Kollektiv" variant="eyebrow">
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <Row
                 label="Kollektivinnstillinger"
@@ -166,17 +166,17 @@ export default function SettingsScreen() {
           </Section>
         )}
 
-        <Section title="Varslinger">
+        <Section title="Varslinger" variant="eyebrow">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <Row label="Varslingsinnstillinger" onPress={() => router.push('/notification-settings')} />
           </View>
         </Section>
 
-        <Section title="Utseende">
+        <Section title="Utseende" variant="eyebrow">
           <PaletteSwitcher />
         </Section>
 
-        <Section title="Om">
+        <Section title="Om" variant="eyebrow">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             {/* Guideline 5.1.1(i) wants the privacy policy reachable "within the app in an
                 easily accessible manner" - behind the paywall isn't that, since someone who
@@ -193,7 +193,7 @@ export default function SettingsScreen() {
 
         <PrimaryButton label="Logg ut" variant="danger" onPress={signOut} />
 
-        <Section title="Farlig sone">
+        <Section title="Farlig sone" variant="eyebrow">
           <ThemedText type="small" themeColor="textSecondary" style={styles.deleteBlurb}>
             Sletting fjerner profilen din, meldingene dine og utgiftene du har lagt ut. Er du
             alene i kollektivet, slettes kollektivet også. Dette kan ikke angres.

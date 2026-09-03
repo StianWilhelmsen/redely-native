@@ -46,7 +46,7 @@ export default function StarterPackScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.six }]}>
-        <Section title="Bytt startpakke">
+        <Section title="Bytt startpakke" variant="eyebrow">
           <ThemedText type="small" themeColor="textSecondary">
             Velg en ny pakke for å bytte ut denne ukas ufullførte startpakke-oppgaver. Allerede
             fullførte oppgaver og poeng beholdes.

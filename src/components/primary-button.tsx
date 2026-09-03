@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, type GestureResponderEvent } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Control, FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
@@ -52,25 +52,28 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <ThemedText type={size === 'large' ? 'heading' : 'smallBold'} style={{ color: textColor }}>
-          {label}
-        </ThemedText>
+        <ThemedText style={[styles.label, { color: textColor }]}>{label}</ThemedText>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // One radius, one label size, two heights - the same control the auth and onboarding
+  // screens build inline, so a button is the same object wherever it appears.
   button: {
-    paddingVertical: Spacing.two + Spacing.half,
+    minHeight: 44,
     paddingHorizontal: Spacing.four,
-    borderRadius: 24,
+    borderRadius: Control.radius,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonLarge: {
-    paddingVertical: Spacing.three,
-    borderRadius: 26,
+    minHeight: Control.height,
+  },
+  label: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 15,
   },
   pressed: {
     opacity: 0.85,

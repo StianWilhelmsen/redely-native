@@ -7,7 +7,7 @@ import { FlatDivider } from '@/components/flat-divider';
 import { FlatStatRow } from '@/components/flat-stat-row';
 import { HighlightQuote } from '@/components/highlight-quote';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { FontFamily, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { levelTitle } from '@/lib/level-titles';
 import type { Badge, Me } from '@/types/api';
@@ -72,7 +72,7 @@ export function ProfileIdentity({
       </Pressable>
 
       <View style={styles.identityText}>
-        <ThemedText type="heading" numberOfLines={1}>
+        <ThemedText style={[styles.identityName, { color: theme.text }]} numberOfLines={1}>
           {me.name}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
@@ -86,8 +86,8 @@ export function ProfileIdentity({
         accessibilityRole="button"
         accessibilityLabel="Innstillinger"
         onPress={onSettingsPress}
-        hitSlop={Spacing.two}>
-        <Ionicons name="settings-outline" size={20} color={theme.textSecondary} />
+        hitSlop={Spacing.three}>
+        <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
       </Pressable>
     </View>
   );
@@ -225,6 +225,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 1,
+  },
+  identityName: {
+    fontFamily: FontFamily.bold,
+    fontSize: 22,
+    lineHeight: 28,
   },
   owedPill: {
     alignSelf: 'flex-start',

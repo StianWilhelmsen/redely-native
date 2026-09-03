@@ -245,7 +245,7 @@ export default function CollectiveSettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.six }]}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled">
-        <Section title="Kollektiv">
+        <Section title="Kollektiv" variant="eyebrow">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             {me?.collective ? (
               <>
@@ -354,7 +354,7 @@ export default function CollectiveSettingsScreen() {
         </Section>
 
         {me?.collective && members && members.length > 0 && (
-          <Section title="Medlemmer">
+          <Section title="Medlemmer" variant="eyebrow">
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               {members.map((member, index) => (
                 <View key={member.id}>

@@ -135,7 +135,7 @@ export default function NotificationSettingsScreen() {
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.six }]}>
         {!osEnabled && (
-          <Section title="Systemtillatelse">
+          <Section title="Systemtillatelse" variant="eyebrow">
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="small" themeColor="textSecondary" style={styles.osBody}>
                 {osStatus === 'denied'
@@ -158,7 +158,7 @@ export default function NotificationSettingsScreen() {
           </Section>
         )}
 
-        <Section title="Varslingstyper">
+        <Section title="Varslingstyper" variant="eyebrow">
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <Row
               label="Oppgaver"
@@ -195,7 +195,7 @@ export default function NotificationSettingsScreen() {
         </Section>
 
         {osEnabled && (
-          <Section title="Test">
+          <Section title="Test" variant="eyebrow">
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <Pressable onPress={handleSendTest} disabled={sendingTest} style={styles.enableRow}>
                 <ThemedText type="smallBold" themeColor="brand">

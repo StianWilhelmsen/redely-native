@@ -1,23 +1,19 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert } from 'react-native';
 import useSWR, { useSWRConfig } from 'swr';
 
-import { Card } from '@/components/card';
 import { ErrorState } from '@/components/error-state';
+import { MyTaskList } from '@/components/home/my-task-list';
 import { currentMonthLabel, MonthActivityHeatmap } from '@/components/me/month-activity-heatmap';
 import { ProfileIdentity, ProfileOverview } from '@/components/me/profile-overview';
-import { PrimaryButton } from '@/components/primary-button';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
-import { TaskCard } from '@/components/tasks/task-card';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { api } from '@/lib/api';
-import { addDays, formatShortDate, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
+import { addDays, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
 import { quickActionFlavor } from '@/lib/weekly-summary-copy';
 import type { Task } from '@/types/api';
 
@@ -136,28 +132,6 @@ export default function MeScreen() {
       ? quickActionFlavor(myWeeklyQuickActions, weeklyStats.weekStart)
       : null;
 
-  if (!me.collective) {
-    return (
-      <ScreenScroll eyebrow="Profil" title="Meg" refreshing={refreshing} onRefresh={handleRefresh}>
-        <ProfileIdentity
-          me={me}
-          memberCount={0}
-          onEditPicture={handlePickProfilePicture}
-          uploadingPicture={uploadingPicture}
-          onSettingsPress={() => router.push('/settings')}
-        />
-
-        <Card tone="brand">
-          <ThemedText type="heading">Finn kollektivet ditt</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Opprett et nytt kollektiv eller bruk en invitasjonskode for å bli med i et eksisterende.
-          </ThemedText>
-          <PrimaryButton label="Gå til Hjem" onPress={() => router.replace('/')} />
-        </Card>
-      </ScreenScroll>
-    );
-  }
-
   // Actually bounded to the current Mon-Sun week. Previously this only checked "has a due
   // date at all", so the six slots filled up with the oldest overdue tasks and this week's
   // work never appeared - despite the heading promising exactly that.
@@ -210,42 +184,19 @@ export default function MeScreen() {
       )}
 
       {myStats && (
-        <Section title="Aktivitet" meta={currentMonthLabel()}>
+        <Section title="Aktivitet" meta={currentMonthLabel()} variant="eyebrow">
           <MonthActivityHeatmap data={myStats.monthActivity} />
         </Section>
       )}
 
-      <Section title="Mine oppgaver denne uken">
-        {myWeekTasks.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Du har ingen oppgaver denne uken. 🎉
-          </ThemedText>
-        ) : (
-          <View style={styles.taskList}>
-            {myWeekTasks.map((task, index) => {
-              const d = parseDueDateLocal(task.dueDate);
-              return (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  subtitle={d ? formatShortDate(d) : undefined}
-                  onToggle={handleToggleTask}
-                  onActions={(t) =>
-                    router.push({ pathname: '/tasks/new', params: { id: String(t.id) } })
-                  }
-                />
-              );
-            })}
-          </View>
-        )}
+      <Section title="Mine oppgaver denne uken" variant="eyebrow">
+        <MyTaskList
+          tasks={myWeekTasks}
+          onToggle={handleToggleTask}
+          onOpen={(task) => router.push({ pathname: '/tasks/new', params: { id: String(task.id) } })}
+          emptyText="Du har ingen oppgaver denne uken. 🎉"
+        />
       </Section>
     </ScreenScroll>
   );
 }
-
-const styles = StyleSheet.create({
-  taskList: {
-    gap: Spacing.two + 2,
-  },
-});

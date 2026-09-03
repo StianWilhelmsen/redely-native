@@ -25,7 +25,7 @@ import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Control, FontFamily, Radii, Spacing } from '@/constants/theme';
 import { localDateKey, relativeDayLabel } from '@/lib/date-utils';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
@@ -414,16 +414,17 @@ export function ConversationView({
             userId={target.peer.id}
             name={target.peer.name}
             pictureUrl={target.peer.pictureUrl}
+            shape="circle"
             size={38}
           />
         ) : (
           <CollectiveAvatar pictureUrl={me?.collective?.pictureUrl} size={38} />
         )}
         <View style={styles.headerText}>
-          <ThemedText type="heading" numberOfLines={1}>
-            {target.type === 'DIRECT' ? target.peer.name : target.title}
+          <ThemedText type="smallBold" numberOfLines={1}>
+            {target.type === 'DIRECT' ? target.peer.name : 'Alle i kollektivet'}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
             {target.type === 'DIRECT'
               ? 'Privat samtale'
               : `${me?.collective?.name ?? 'Kollektivet'} · ${members?.length ?? 0} medlem${members?.length === 1 ? '' : 'mer'}`}
@@ -771,16 +772,20 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    borderRadius: Radii.sheet,
-    paddingHorizontal: Spacing.three,
+    minHeight: 44,
+    borderRadius: Control.radius,
+    paddingHorizontal: Spacing.three + Spacing.half,
     paddingVertical: Spacing.two + 2,
+    fontFamily: FontFamily.regular,
     fontSize: 15,
     maxHeight: 100,
   },
+  // A rounded square, the same shape as the shopping list's add button - the two are the
+  // same gesture (commit what you just typed) and now look like it.
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: Control.radius,
     alignItems: 'center',
     justifyContent: 'center',
   },

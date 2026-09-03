@@ -23,9 +23,42 @@ export type PaletteTokens = {
   danger: string;
 };
 
-export type PaletteId = 'warmClay' | 'boldCitrus' | 'deepPlum' | 'inkAmber';
+export type PaletteId = 'redely' | 'warmClay' | 'boldCitrus' | 'deepPlum' | 'inkAmber';
 
 export const Palettes: Record<PaletteId, { light: PaletteTokens; dark: PaletteTokens }> = {
+  /**
+   * The app's own look, from the 2026-09 redesign. Surfaces are deliberately neutral -
+   * paper-white in light, near-black in dark - so the coral brand is the only saturated
+   * color on screen and always reads as "this is the action".
+   */
+  redely: {
+    light: {
+      text: '#1A1A1A',
+      textSecondary: '#8A8279',
+      background: '#FFFFFF',
+      backgroundElement: '#F5F0EA',
+      backgroundSelected: '#EDE7DF',
+      border: '#E9E3DA',
+      brand: '#E05F4A',
+      onBrand: '#FFFFFF',
+      brandSecondary: '#B84632',
+      success: '#4E9B6C',
+      danger: '#C24632',
+    },
+    dark: {
+      text: '#F7F5F3',
+      textSecondary: '#8E8A86',
+      background: '#121212',
+      backgroundElement: '#1E1E1E',
+      backgroundSelected: '#282828',
+      border: '#2E2E2E',
+      brand: '#E8776A',
+      onBrand: '#231110',
+      brandSecondary: '#F0A08F',
+      success: '#6FBF8B',
+      danger: '#E4574A',
+    },
+  },
   warmClay: {
     light: {
       text: '#2B2420',
@@ -141,6 +174,7 @@ export const Palettes: Record<PaletteId, { light: PaletteTokens; dark: PaletteTo
 };
 
 export const PaletteMeta: { id: PaletteId; name: string; description: string }[] = [
+  { id: 'redely', name: 'Redely', description: 'Coral on paper and ink. The signature look.' },
   { id: 'deepPlum', name: 'Deep Plum', description: 'Aubergine and coral. Moody and premium.' },
   { id: 'warmClay', name: 'Warm Clay', description: 'Terracotta on warm cream. Cozy and domestic.' },
   { id: 'boldCitrus', name: 'Bold Citrus', description: 'Lime and navy. Playful and game-like.' },

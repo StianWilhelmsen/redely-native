@@ -5,20 +5,25 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { usePalette } from '@/theme/palette-context';
 
 type Mode = 'signIn' | 'signUp';
+
+/** Every control on this screen shares one height and corner radius - inputs, the primary
+ *  action and the provider buttons all line up as a single stack. */
+const CONTROL_HEIGHT = 52;
+const CONTROL_RADIUS = 14;
 
 export default function SignInScreen() {
   const { signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signInError } =
@@ -72,218 +77,230 @@ export default function SignInScreen() {
   };
 
   const pending = pendingProvider !== null;
+  const submitDisabled = pending || !email || !password;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.brand }]}>
-      <View style={[styles.hero, { paddingTop: insets.top + Spacing.four }]}>
-        <Image source={require('@/assets/logo.png')} style={styles.mark} contentFit="contain" />
-        <ThemedText type="display" themeColor="onBrand" style={styles.title}>
-          Ryddig{'\n'}Kollektiv
-        </ThemedText>
-      </View>
+    <ScrollView
+      style={{ backgroundColor: theme.background }}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + Spacing.six, paddingBottom: insets.bottom + Spacing.four },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+      showsVerticalScrollIndicator={false}>
+      <Image source={require('@/assets/logo.png')} style={styles.mark} contentFit="contain" />
 
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.five },
-        ]}>
-        <View style={styles.sheetText}>
-          <ThemedText type="heading" style={styles.pitch}>
-            Et ryddigere kollektiv, uten mas
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.pitchBody}>
-            Oppgaver, poeng og felles utgifter — samlet på ett sted for deg og de du bor med.
-          </ThemedText>
-        </View>
+      <ThemedText style={[styles.title, { color: theme.text }]}>Redely</ThemedText>
+      <ThemedText type="default" themeColor="textSecondary" style={styles.pitch}>
+        Oppgaver, handleliste og utgifter – samlet for deg og de du bor med.
+      </ThemedText>
 
-        {signInError && (
-          <ThemedText type="small" themeColor="danger" style={styles.error}>
-            {signInError}
-          </ThemedText>
-        )}
+      <View style={styles.form}>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="E-post"
+          placeholderTextColor={theme.textSecondary}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Passord"
+          placeholderTextColor={theme.textSecondary}
+          secureTextEntry
+          autoComplete={mode === 'signIn' ? 'password' : 'password-new'}
+          style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
+        />
 
-        {notice && !signInError && (
-          <ThemedText type="small" themeColor="brand" style={styles.error}>
-            {notice}
-          </ThemedText>
-        )}
-
-        <View style={styles.form}>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="E-post"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Passord"
-            placeholderTextColor={theme.textSecondary}
-            secureTextEntry
-            autoComplete={mode === 'signIn' ? 'password' : 'password-new'}
-            style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-          />
-
-          <PrimaryButton
-            label={mode === 'signIn' ? 'Logg inn' : 'Opprett konto'}
-            onPress={handlePasswordSubmit}
-            loading={pendingProvider === 'password'}
-            disabled={pending || !email || !password}
-          />
-
-          <Pressable
-            onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
-            hitSlop={Spacing.two}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.toggleText}>
-              {mode === 'signIn' ? 'Ny bruker? Opprett konto' : 'Har du konto? Logg inn'}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: submitDisabled }}
+          onPress={handlePasswordSubmit}
+          disabled={submitDisabled}
+          style={({ pressed }) => [
+            styles.control,
+            styles.primaryButton,
+            { backgroundColor: theme.brand },
+            submitDisabled && styles.disabled,
+            pressed && !submitDisabled && styles.pressed,
+          ]}>
+          {pendingProvider === 'password' ? (
+            <ActivityIndicator color={theme.onBrand} />
+          ) : (
+            <ThemedText style={[styles.controlLabel, { color: theme.onBrand }]}>
+              {mode === 'signIn' ? 'Logg inn' : 'Opprett konto'}
             </ThemedText>
-          </Pressable>
-        </View>
-
-        <View style={styles.divider}>
-          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-          <ThemedText type="small" themeColor="textSecondary">
-            eller
-          </ThemedText>
-          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-        </View>
-
-        <View style={styles.oauthGroup}>
-          <Pressable
-            onPress={() => handleOAuth('google')}
-            disabled={pending}
-            style={({ pressed }) => [
-              styles.oauthButton,
-              { backgroundColor: theme.backgroundElement },
-              pressed && styles.buttonPressed,
-              pending && styles.disabled,
-            ]}>
-            {pendingProvider === 'google' ? (
-              <ActivityIndicator color={theme.text} />
-            ) : (
-              <ThemedText type="smallBold">Fortsett med Google</ThemedText>
-            )}
-          </Pressable>
-
-          {/* Apple's own button component, not a look-alike: guideline 4 requires Sign in
-              with Apple to use the system-provided control, which also localises its label
-              and follows the device appearance on its own. */}
-          {Platform.OS === 'ios' && (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-              buttonStyle={
-                scheme === 'dark'
-                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-              }
-              cornerRadius={27}
-              style={[styles.appleButton, pending && styles.disabled]}
-              onPress={() => {
-                if (!pending) handleOAuth('apple');
-              }}
-            />
           )}
-        </View>
-
-        <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
-          Gratis for kollektivet ditt
-        </ThemedText>
+        </Pressable>
       </View>
-    </View>
+
+      {signInError && (
+        <ThemedText type="small" themeColor="danger" style={styles.message}>
+          {signInError}
+        </ThemedText>
+      )}
+      {notice && !signInError && (
+        <ThemedText type="small" themeColor="brand" style={styles.message}>
+          {notice}
+        </ThemedText>
+      )}
+
+      <Pressable
+        onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
+        hitSlop={Spacing.two}
+        style={styles.toggle}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {mode === 'signIn' ? 'Ny her? ' : 'Har du konto? '}
+          <ThemedText type="smallBold" themeColor="brand">
+            {mode === 'signIn' ? 'Opprett konto' : 'Logg inn'}
+          </ThemedText>
+        </ThemedText>
+      </Pressable>
+
+      {/* Pushes the provider buttons to the bottom of the screen, and collapses first when
+          the keyboard takes the space. */}
+      <View style={styles.spacer} />
+
+      <View style={styles.divider}>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <ThemedText type="small" themeColor="textSecondary">
+          eller
+        </ThemedText>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </View>
+
+      <View style={styles.providers}>
+        {/* Apple's own button component, not a look-alike: guideline 4 requires Sign in
+            with Apple to use the system-provided control, which also localises its label
+            and follows the device appearance on its own. Only its geometry is ours, so it
+            lines up with the Google button below. */}
+        {Platform.OS === 'ios' && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={
+              scheme === 'dark'
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+            }
+            cornerRadius={CONTROL_RADIUS}
+            style={[styles.appleButton, pending && styles.disabled]}
+            onPress={() => {
+              if (!pending) handleOAuth('apple');
+            }}
+          />
+        )}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleOAuth('google')}
+          disabled={pending}
+          style={({ pressed }) => [
+            styles.control,
+            styles.providerButton,
+            { borderColor: theme.border, backgroundColor: theme.background },
+            pending && styles.disabled,
+            pressed && !pending && styles.pressed,
+          ]}>
+          {pendingProvider === 'google' ? (
+            <ActivityIndicator color={theme.text} />
+          ) : (
+            <ThemedText style={[styles.controlLabel, { color: theme.text }]}>
+              Fortsett med Google
+            </ThemedText>
+          )}
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  hero: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.four,
-    paddingHorizontal: Spacing.five,
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.four,
   },
   mark: {
-    width: 100,
-    height: 100,
+    width: 36,
+    height: 36,
   },
   title: {
+    fontFamily: FontFamily.bold,
     fontSize: 34,
-    lineHeight: 40,
-    textAlign: 'center',
-  },
-  sheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: Spacing.five,
-    paddingTop: Spacing.five,
-    gap: Spacing.three,
-  },
-  sheetText: {
-    gap: Spacing.one,
-    alignItems: 'center',
+    lineHeight: 41,
+    marginTop: Spacing.four + Spacing.one,
   },
   pitch: {
-    textAlign: 'center',
-  },
-  pitchBody: {
-    textAlign: 'center',
-    maxWidth: 300,
+    marginTop: Spacing.two,
     lineHeight: 22,
   },
-  error: {
-    textAlign: 'center',
-  },
   form: {
-    gap: Spacing.two,
+    marginTop: Spacing.five,
+    gap: Spacing.two + Spacing.half,
+  },
+  control: {
+    height: CONTROL_HEIGHT,
+    borderRadius: CONTROL_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlLabel: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 15,
   },
   input: {
-    height: 50,
-    borderRadius: 14,
-    paddingHorizontal: Spacing.three,
-    fontSize: 16,
+    height: CONTROL_HEIGHT,
+    borderRadius: CONTROL_RADIUS,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    fontFamily: FontFamily.regular,
+    fontSize: 15,
   },
-  toggleText: {
+  primaryButton: {
+    marginTop: Spacing.one,
+  },
+  message: {
+    marginTop: Spacing.three,
     textAlign: 'center',
+  },
+  toggle: {
+    marginTop: Spacing.four,
+    alignItems: 'center',
+  },
+  spacer: {
+    flex: 1,
+    minHeight: Spacing.six,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
+    marginBottom: Spacing.four,
   },
   dividerLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
   },
-  oauthGroup: {
-    gap: Spacing.two,
-  },
-  oauthButton: {
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
+  providers: {
+    gap: Spacing.two + Spacing.half,
   },
   // Height only - AppleAuthenticationButton paints its own background and corners
   // (cornerRadius prop), and rejects backgroundColor/borderRadius in `style`.
   appleButton: {
     width: '100%',
-    height: 54,
+    height: CONTROL_HEIGHT,
   },
-  buttonPressed: {
+  providerButton: {
+    borderWidth: 1,
+  },
+  pressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
   disabled: {
     opacity: 0.5,
-  },
-  footnote: {
-    textAlign: 'center',
   },
 });

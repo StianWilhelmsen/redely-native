@@ -5,7 +5,7 @@ import { useColorScheme } from 'react-native';
 import { Palettes, type PaletteId, type PaletteTokens } from '@/constants/theme';
 
 const STORAGE_KEY = 'ryddig-kollektiv:palette';
-const DEFAULT_PALETTE: PaletteId = 'deepPlum';
+const DEFAULT_PALETTE: PaletteId = 'redely';
 
 type PaletteContextValue = {
   paletteId: PaletteId;

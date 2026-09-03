@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import Animated, { Easing, ZoomIn } from 'react-native-reanimated';
 import useSWR from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
@@ -249,7 +249,7 @@ function ItemRow({
             : { borderColor: theme.border },
         ]}>
         {item.purchased && (
-          <Animated.View entering={ZoomIn.springify().damping(12)}>
+          <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
             <Ionicons name="checkmark" size={15} color={theme.onBrand} />
           </Animated.View>
         )}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    paddingVertical: Spacing.two + Spacing.half,
+    paddingVertical: Spacing.three,
   },
   checkbox: {
     width: 26,

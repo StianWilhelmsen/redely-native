@@ -128,8 +128,8 @@ function TabButton({
   useEffect(() => {
     if (!isFocused) return;
     scale.value = withSequence(
-      withTiming(0.85, { duration: 90 }),
-      withSpring(1, { damping: 10, stiffness: 220 })
+      withTiming(0.9, { duration: 80 }),
+      withSpring(1, { damping: 18, stiffness: 240 })
     );
   }, [isFocused, scale]);
 

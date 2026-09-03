@@ -38,8 +38,9 @@ let cachedModule: PurchasesModule | null | undefined;
 function loadPurchases(): PurchasesModule | null {
   if (cachedModule !== undefined) return cachedModule;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberately not
-    // a static import: this must be allowed to fail without taking the app with it.
+    // Deliberately not a static import: this must be allowed to fail without taking the
+    // app down with it.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require('react-native-purchases') as PurchasesModule;
   } catch {
     if (__DEV__) {

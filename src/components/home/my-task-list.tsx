@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import Animated, { Easing, ZoomIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -60,7 +60,7 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Pro
             {/* Zooms in on its own rather than appearing with the fill, so ticking a box
                 has a moment of its own instead of the row just changing colour. */}
             {task.completed && (
-              <Animated.View entering={ZoomIn.springify().damping(12)}>
+              <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
                 <Ionicons name="checkmark" size={15} color={theme.onBrand} />
               </Animated.View>
             )}
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    paddingVertical: Spacing.two + Spacing.half,
+    paddingVertical: Spacing.three,
   },
   checkbox: {
     width: 26,

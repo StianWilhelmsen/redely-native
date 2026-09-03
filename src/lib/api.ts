@@ -49,7 +49,17 @@ function errorMessageFrom(body: string): string {
   }
 }
 
-const GET_RETRY_DELAYS_MS = [700, 1800];
+/**
+ * Backoff for repeatable reads, sized for a cold start rather than a blip: the backend
+ * sleeps when idle and can take the better part of a minute to wake, during which every
+ * attempt fails fast. The old budget of ~2.5s ran out long before it was up, so the very
+ * first request after a quiet period reported "kan ikke koble til serveren" on a working
+ * connection - and then succeeded on SWR's next attempt, which is why it only flashed.
+ *
+ * Spending ~30s here instead keeps the whole wait inside one attempt, so the screen shows
+ * a spinner throughout rather than flickering between spinner and error.
+ */
+const GET_RETRY_DELAYS_MS = [700, 1800, 4000, 8000, 15000];
 
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;

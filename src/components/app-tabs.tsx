@@ -4,6 +4,13 @@ import { Tabs, TabList, TabSlot, TabTrigger, type TabListProps, type TabTriggerS
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -114,10 +121,23 @@ function TabButton({
   showDot?: boolean;
 }) {
   const theme = useTheme();
+  const scale = useSharedValue(1);
+
+  // A short dip-and-settle when a tab becomes the active one. Small on purpose: the tab
+  // bar is furniture, and furniture that performs gets tiring by the tenth tap.
+  useEffect(() => {
+    if (!isFocused) return;
+    scale.value = withSequence(
+      withTiming(0.85, { duration: 90 }),
+      withSpring(1, { damping: 10, stiffness: 220 })
+    );
+  }, [isFocused, scale]);
+
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <Pressable {...props} style={styles.tabButton}>
-      <View style={styles.iconWrap}>
+      <Animated.View style={[styles.iconWrap, iconStyle]}>
         <Ionicons
           name={isFocused ? iconActive : icon}
           size={22}
@@ -126,7 +146,7 @@ function TabButton({
         {showDot && (
           <View style={[styles.dot, { backgroundColor: theme.danger, borderColor: theme.background }]} />
         )}
-      </View>
+      </Animated.View>
       <ThemedText
         type={isFocused ? 'smallBold' : 'small'}
         themeColor={isFocused ? 'text' : 'textSecondary'}

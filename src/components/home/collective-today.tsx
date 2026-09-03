@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { AvatarBadge } from '@/components/avatar-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { rowEntrance } from '@/lib/animations';
 import { localDateKey, parseDueDateLocal } from '@/lib/date-utils';
 import type { ActivityEvent, Member, Task } from '@/types/api';
 
@@ -116,8 +118,8 @@ export function CollectiveToday({
 
   return (
     <View>
-      {statuses.map(({ member, headline, detail, state }) => (
-        <View key={member.id} style={styles.row}>
+      {statuses.map(({ member, headline, detail, state }, index) => (
+        <Animated.View key={member.id} entering={rowEntrance(index)} style={styles.row}>
           <AvatarBadge
             userId={member.id}
             name={member.name}
@@ -143,7 +145,7 @@ export function CollectiveToday({
           {state === 'pending' && (
             <View style={[styles.indicator, { borderColor: theme.border }]} />
           )}
-        </View>
+        </Animated.View>
       ))}
     </View>
   );

@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { ProgressBar } from '@/components/progress-bar';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, memberColor, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,18 +53,19 @@ export function SharedGoal({ stats, daysLeft }: { stats: WeeklyStats; daysLeft: 
 
       <View
         accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max: stats.goalPoints, now: stats.totalPoints }}
-        style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-        {contributors.map((member) => (
-          <View
-            key={member.userId}
-            style={{
-              flex: member.weekPoints,
-              backgroundColor: memberColor(member.userId),
-            }}
-          />
-        ))}
-        {remaining > 0 && <View style={{ flex: remaining }} />}
+        accessibilityValue={{ min: 0, max: stats.goalPoints, now: stats.totalPoints }}>
+        {/* The bar fills to the collective's share of the goal, and the segments inside it
+            divide that fill between whoever earned it. */}
+        <ProgressBar
+          percent={Math.min(100, (stats.totalPoints / Math.max(1, stats.goalPoints)) * 100)}
+          trackColor={theme.backgroundSelected}>
+          {contributors.map((member) => (
+            <View
+              key={member.userId}
+              style={{ flex: member.weekPoints, backgroundColor: memberColor(member.userId) }}
+            />
+          ))}
+        </ProgressBar>
       </View>
 
       <ThemedText type="small" themeColor="textSecondary">
@@ -105,11 +107,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     fontSize: 20,
     lineHeight: 26,
-  },
-  track: {
-    flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
   },
 });

@@ -5,6 +5,7 @@ import { AnimatedNumber } from '@/components/animated-number';
 import { AvatarBadge } from '@/components/avatar-badge';
 import { FlatDivider } from '@/components/flat-divider';
 import { FlatStatRow } from '@/components/flat-stat-row';
+import { ProgressBar } from '@/components/progress-bar';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -133,9 +134,7 @@ export function ProfileOverview({
             </ThemedText>
           </View>
         </View>
-        <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-          <View style={[styles.fill, { width: `${percent}%`, backgroundColor: theme.brand }]} />
-        </View>
+        <ProgressBar percent={percent} trackColor={theme.backgroundSelected} color={theme.brand} />
       </View>
 
       <FlatDivider />
@@ -209,14 +208,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     fontSize: 20,
     lineHeight: 26,
-  },
-  track: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 4,
   },
 });

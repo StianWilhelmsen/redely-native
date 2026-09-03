@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ProgressBar } from '@/components/progress-bar';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,14 +53,12 @@ export function WeeklyGoalBar({ stats }: { stats: WeeklyStats }) {
         </View>
       </View>
 
-      <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-        <View
-          style={[
-            styles.fill,
-            { width: `${percent}%`, backgroundColor: reached ? theme.success : theme.brand },
-          ]}
-        />
-      </View>
+      <ProgressBar
+        percent={percent}
+        height={3}
+        trackColor={theme.backgroundSelected}
+        color={reached ? theme.success : theme.brand}
+      />
     </Pressable>
   );
 }
@@ -81,15 +80,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.half,
-  },
-  track: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 2,
   },
   pressed: {
     opacity: 0.7,

@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { rowEntrance, rowTransition } from '@/lib/animations';
 import type { Task } from '@/types/api';
 
 type Props = {
@@ -36,9 +38,11 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Pro
 
   return (
     <View>
-      {tasks.map((task) => (
-        <Pressable
+      {tasks.map((task, index) => (
+        <AnimatedPressable
           key={task.id}
+          entering={rowEntrance(index)}
+          layout={rowTransition}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: task.completed }}
           accessibilityLabel={`${task.title}, ${task.points} poeng`}
@@ -53,7 +57,13 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Pro
                 ? { backgroundColor: theme.brand, borderColor: theme.brand }
                 : { borderColor: theme.border },
             ]}>
-            {task.completed && <Ionicons name="checkmark" size={15} color={theme.onBrand} />}
+            {/* Zooms in on its own rather than appearing with the fill, so ticking a box
+                has a moment of its own instead of the row just changing colour. */}
+            {task.completed && (
+              <Animated.View entering={ZoomIn.springify().damping(12)}>
+                <Ionicons name="checkmark" size={15} color={theme.onBrand} />
+              </Animated.View>
+            )}
           </View>
 
           <View style={styles.text}>
@@ -73,11 +83,13 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Pro
           <ThemedText type="small" themeColor="textSecondary">
             {trailing ? trailing(task) : `${task.points} p`}
           </ThemedText>
-        </Pressable>
+        </AnimatedPressable>
       ))}
     </View>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   row: {

@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import useSWR from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
@@ -15,6 +16,7 @@ import { Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { rowEntrance } from '@/lib/animations';
 import { useCollectiveEvent } from '@/lib/collective-socket';
 import type { ChatConversation, ChatMessage, PresenceEvent } from '@/types/api';
 
@@ -157,9 +159,10 @@ export default function ChatScreen() {
               </ThemedText>
             ) : (
               <View>
-                {direct.map((conversation) => (
+                {direct.map((conversation, index) => (
                   <ConversationRow
                     key={conversation.peerId}
+                    index={index}
                     title={conversation.title}
                     preview={preview(conversation, me?.id)}
                     unreadCount={conversation.unreadCount}
@@ -209,6 +212,7 @@ function ConversationRow({
   time,
   avatar,
   online,
+  index = 0,
   onPress,
 }: {
   title: string;
@@ -217,13 +221,15 @@ function ConversationRow({
   time: string | null;
   avatar: React.ReactNode;
   online?: boolean;
+  index?: number;
   onPress: () => void;
 }) {
   const theme = useTheme();
   const hasUnread = unreadCount > 0;
 
   return (
-    <Pressable
+    <AnimatedPressable
+      entering={rowEntrance(index)}
       accessibilityRole="button"
       accessibilityLabel={`${title}${hasUnread ? `, ${unreadCount} uleste` : ''}${online ? ', pålogget' : ''}`}
       onPress={onPress}
@@ -268,9 +274,11 @@ function ConversationRow({
           </View>
         )}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   groupBand: {

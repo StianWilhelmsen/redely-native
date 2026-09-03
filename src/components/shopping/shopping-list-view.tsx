@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import useSWR from 'swr';
 
 import { AvatarBadge } from '@/components/avatar-badge';
@@ -11,6 +12,7 @@ import { Section } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
 import { Control, FontFamily, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { rowEntrance, rowTransition } from '@/lib/animations';
 import { api } from '@/lib/api';
 import type { ShoppingItem } from '@/types/api';
 
@@ -163,9 +165,10 @@ export function ShoppingListView() {
           </ThemedText>
         ) : (
           <View>
-            {openItems.map((item) => (
+            {openItems.map((item, index) => (
               <ItemRow
                 key={item.id}
+                index={index}
                 item={item}
                 busy={busyId === item.id}
                 onToggle={() => handleTogglePurchased(item)}
@@ -192,9 +195,10 @@ export function ShoppingListView() {
             </Pressable>
           }>
           <View>
-            {purchasedItems.map((item) => (
+            {purchasedItems.map((item, index) => (
               <ItemRow
                 key={item.id}
+                index={index}
                 item={item}
                 busy={busyId === item.id}
                 onToggle={() => handleTogglePurchased(item)}
@@ -210,11 +214,13 @@ export function ShoppingListView() {
 
 function ItemRow({
   item,
+  index,
   busy,
   onToggle,
   onDelete,
 }: {
   item: ShoppingItem;
+  index: number;
   busy: boolean;
   onToggle: () => void;
   onDelete: () => void;
@@ -222,7 +228,11 @@ function ItemRow({
   const theme = useTheme();
 
   return (
-    <Pressable
+    // layout, not just entering: ticking an item moves it from one section to the other,
+    // and gliding there keeps it obvious which item just moved.
+    <AnimatedPressable
+      entering={rowEntrance(index)}
+      layout={rowTransition}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: item.purchased }}
       accessibilityLabel={item.name}
@@ -238,7 +248,11 @@ function ItemRow({
             ? { backgroundColor: theme.brand, borderColor: theme.brand }
             : { borderColor: theme.border },
         ]}>
-        {item.purchased && <Ionicons name="checkmark" size={15} color={theme.onBrand} />}
+        {item.purchased && (
+          <Animated.View entering={ZoomIn.springify().damping(12)}>
+            <Ionicons name="checkmark" size={15} color={theme.onBrand} />
+          </Animated.View>
+        )}
       </View>
 
       <ThemedText
@@ -258,9 +272,11 @@ function ItemRow({
           size={24}
         />
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   addRow: {

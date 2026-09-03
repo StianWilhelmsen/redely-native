@@ -1,8 +1,10 @@
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { AvatarBadge } from '@/components/avatar-badge';
 import { ThemedText } from '@/components/themed-text';
 import { FontFamily, Spacing } from '@/constants/theme';
+import { rowEntrance, rowTransition } from '@/lib/animations';
 import type { WeeklyQuickActions, WeeklyStats, WeeklyTask } from '@/types/api';
 
 type Props = {
@@ -28,7 +30,13 @@ export function WeekLeaderboard({ leaderboard, tasks, quickActionsByUser, meId }
         const hasDone = taskCount > 0 || quickCount > 0;
 
         return (
-          <View key={member.userId} style={styles.row}>
+          // layout too: points move during the week, and a row overtaking another should
+          // be visible as exactly that.
+          <Animated.View
+            key={member.userId}
+            entering={rowEntrance(index)}
+            layout={rowTransition}
+            style={styles.row}>
             <ThemedText type="small" themeColor="textSecondary" style={styles.rank}>
               {index + 1}
             </ThemedText>
@@ -65,7 +73,7 @@ export function WeekLeaderboard({ leaderboard, tasks, quickActionsByUser, meId }
             <ThemedText type="smallBold" style={styles.points}>
               {member.weekPoints} p
             </ThemedText>
-          </View>
+          </Animated.View>
         );
       })}
     </View>

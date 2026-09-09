@@ -228,57 +228,56 @@ function ConversationRow({
   const hasUnread = unreadCount > 0;
 
   return (
-    <AnimatedPressable
-      entering={rowEntrance(index)}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}${hasUnread ? `, ${unreadCount} uleste` : ''}${online ? ', pålogget' : ''}`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={styles.avatarWrap}>
-        {avatar}
-        {online && (
-          <View
-            style={[
-              styles.onlineDot,
-              { backgroundColor: theme.success, borderColor: theme.background },
-            ]}
-          />
-        )}
-      </View>
+    <Animated.View entering={rowEntrance(index)}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}${hasUnread ? `, ${unreadCount} uleste` : ''}${online ? ', pålogget' : ''}`}
+        onPress={onPress}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+        <View style={styles.avatarWrap}>
+          {avatar}
+          {online && (
+            <View
+              style={[
+                styles.onlineDot,
+                { backgroundColor: theme.success, borderColor: theme.background },
+              ]}
+            />
+          )}
+        </View>
 
-      <View style={styles.text}>
-        <ThemedText type="smallBold" numberOfLines={1}>
-          {title}
-        </ThemedText>
-        <ThemedText
-          type={hasUnread ? 'smallBold' : 'small'}
-          themeColor={hasUnread ? 'text' : 'textSecondary'}
-          numberOfLines={1}>
-          {preview}
-        </ThemedText>
-      </View>
-
-      <View style={styles.meta}>
-        {time && (
-          // Unread turns the timestamp brand-coloured: the badge says how many, the time
-          // says how long it has been sitting there.
-          <ThemedText type="small" themeColor={hasUnread ? 'brand' : 'textSecondary'}>
-            {time}
+        <View style={styles.text}>
+          <ThemedText type="smallBold" numberOfLines={1}>
+            {title}
           </ThemedText>
-        )}
-        {hasUnread && (
-          <View style={[styles.badge, { backgroundColor: theme.brand }]}>
-            <ThemedText type="smallBold" style={[styles.badgeText, { color: theme.onBrand }]}>
-              {unreadCount > 99 ? '99+' : unreadCount}
+          <ThemedText
+            type={hasUnread ? 'smallBold' : 'small'}
+            themeColor={hasUnread ? 'text' : 'textSecondary'}
+            numberOfLines={1}>
+            {preview}
+          </ThemedText>
+        </View>
+
+        <View style={styles.meta}>
+          {time && (
+            // Unread turns the timestamp brand-coloured: the badge says how many, the time
+            // says how long it has been sitting there.
+            <ThemedText type="small" themeColor={hasUnread ? 'brand' : 'textSecondary'}>
+              {time}
             </ThemedText>
-          </View>
-        )}
-      </View>
-    </AnimatedPressable>
+          )}
+          {hasUnread && (
+            <View style={[styles.badge, { backgroundColor: theme.brand }]}>
+              <ThemedText type="smallBold" style={[styles.badgeText, { color: theme.onBrand }]}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   groupBand: {

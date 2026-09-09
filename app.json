@@ -2,13 +2,14 @@
   "expo": {
     "name": "Redely",
     "slug": "redely",
-    "version": "1.1.0",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ryddigkollektivnative",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.wilhelmsen.ryddigkollektiv",
+      "icon": "./assets/images/Redely.icon",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Collapsible } from '@/components/collapsible';
 import { ErrorState } from '@/components/error-state';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ThemedText } from '@/components/themed-text';
@@ -80,23 +81,11 @@ export function StarterPackStep({ packs, error, onRetry, selectedPackId, onSelec
                   </View>
                 </Pressable>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: isOpen }}
-                  onPress={() => toggleExpanded(pack.id)}
-                  hitSlop={Spacing.two}
-                  style={styles.disclosure}>
-                  <ThemedText type="small" themeColor="brand">
-                    {isOpen ? 'Skjul oppgavene' : `Se de ${pack.tasks.length} oppgavene`}
-                  </ThemedText>
-                  <Ionicons
-                    name={isOpen ? 'chevron-up' : 'chevron-down'}
-                    size={13}
-                    color={theme.brand}
-                  />
-                </Pressable>
-
-                {isOpen && (
+                <Collapsible
+                  open={isOpen}
+                  onToggle={() => toggleExpanded(pack.id)}
+                  label={`Se de ${pack.tasks.length} oppgavene`}
+                  openLabel="Skjul oppgavene">
                   <View style={styles.tasks}>
                     {pack.tasks.map((task) => (
                       <View key={task.title} style={styles.task}>
@@ -110,7 +99,7 @@ export function StarterPackStep({ packs, error, onRetry, selectedPackId, onSelec
                       </View>
                     ))}
                   </View>
-                )}
+                </Collapsible>
               </View>
             );
           })}
@@ -160,13 +149,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  disclosure: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.three,
   },
   tasks: {
     gap: Spacing.two,

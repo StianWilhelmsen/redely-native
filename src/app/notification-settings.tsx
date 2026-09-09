@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
-import { api, ApiError } from '@/lib/api';
+import { api } from '@/lib/api';
 import {
   getPermissionStatus,
   isNotificationPermissionGranted,
@@ -60,7 +60,6 @@ export default function NotificationSettingsScreen() {
   const [osStatus, setOsStatus] = useState<'granted' | 'denied' | 'undetermined' | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
-  const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => {
     getPermissionStatus().then((permission) =>
@@ -103,24 +102,6 @@ export default function NotificationSettingsScreen() {
       await mutateMe();
     } finally {
       setSaving(null);
-    }
-  };
-
-  const handleSendTest = async () => {
-    setSendingTest(true);
-    try {
-      await api.sendTestNotification();
-      Alert.alert('Testvarsel sendt', 'Expo har godtatt varselet for levering til enheten.');
-    } catch (err) {
-      const message =
-        err instanceof ApiError && err.status === 400
-          ? 'Ingen push-token registrert. Aktiver varslinger over først.'
-          : err instanceof ApiError && err.status === 502
-            ? 'Expo avviste varselet. Kontroller APNs/FCM-credentials og prøv igjen.'
-            : 'Klarte ikke å sende testvarsel. Prøv igjen.';
-      Alert.alert('Noe gikk galt', message);
-    } finally {
-      setSendingTest(false);
     }
   };
 
@@ -193,18 +174,6 @@ export default function NotificationSettingsScreen() {
             />
           </View>
         </Section>
-
-        {osEnabled && (
-          <Section title="Test" variant="eyebrow">
-            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-              <Pressable onPress={handleSendTest} disabled={sendingTest} style={styles.enableRow}>
-                <ThemedText type="smallBold" themeColor="brand">
-                  {sendingTest ? 'Sender…' : 'Send meg en testvarsel'}
-                </ThemedText>
-              </Pressable>
-            </View>
-          </Section>
-        )}
       </ScrollView>
     </View>
   );

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,48 +9,76 @@ import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getPermissionStatus, requestAndRegisterPushToken } from '@/lib/push-notifications';
 
-const DISMISSED_KEY = 'ryddig-kollektiv.notif-prompt-shown';
+const SNOOZE_KEY = 'redely.notification-prompt.snoozed-until';
+const SNOOZE_DAYS = 7;
+/** Long enough for Hjem to be on screen before a card lands on top of it. */
+const SHOW_DELAY_MS = 1200;
+
+type Props = {
+  /** The prompt only makes sense once there is a collective to be notified about. */
+  collectiveId: number | null | undefined;
+};
 
 /**
- * One-time, custom pre-permission prompt shown after onboarding. We ask in our
- * own words first (rather than throwing the OS dialog at people cold) - if they
- * say yes, only then do we trigger the real system permission request.
+ * Our own ask before the OS's. iOS allows exactly one system prompt, and a "no" there is
+ * final short of a trip to Settings - so we say in our words what the notifications are
+ * for, and only trigger the system dialog on a yes. "Ikke nå" comes back a week later;
+ * it is not a refusal, and the first evening in a new collective is not always the
+ * moment people want to decide.
+ *
+ * Plain storage on purpose: the earlier keychain flag survived reinstalls on iOS, so a
+ * device that had once tapped "Ikke nå" never saw the card again on any later install.
  */
-export function NotificationPrompt() {
+export function NotificationPrompt({ collectiveId }: Props) {
   const theme = useTheme();
   const [visible, setVisible] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
+    if (!collectiveId) return;
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
-      const alreadyShown = await SecureStore.getItemAsync(DISMISSED_KEY);
-      if (alreadyShown) return;
-      const { status } = await getPermissionStatus();
-      if (!cancelled && status === 'undetermined') {
-        setVisible(true);
+      try {
+        const snoozedUntil = Number(await AsyncStorage.getItem(SNOOZE_KEY));
+        if (snoozedUntil && Date.now() < snoozedUntil) return;
+      } catch {
+        // Unreadable storage is no reason to skip the ask.
       }
+      // 'undetermined' is the only state where asking does anything: granted needs no
+      // card, and a denial can only be undone in Settings (Varslingsinnstillinger links there).
+      const { status } = await getPermissionStatus();
+      if (cancelled || status !== 'undetermined') return;
+      timer = setTimeout(() => {
+        if (!cancelled) setVisible(true);
+      }, SHOW_DELAY_MS);
     })();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [collectiveId]);
 
-  const dismiss = async () => {
-    await SecureStore.setItemAsync(DISMISSED_KEY, '1');
+  const snooze = async () => {
     setVisible(false);
+    try {
+      await AsyncStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_DAYS * 86_400_000));
+    } catch {
+      // Worst case the card returns next launch.
+    }
   };
 
   const handleAccept = async () => {
     setRequesting(true);
     try {
       await requestAndRegisterPushToken();
-      await dismiss();
+      setVisible(false);
     } catch (error) {
       console.warn('Could not enable push notifications', error);
+      setVisible(false);
       Alert.alert(
-        'Kunne ikke aktivere varslinger',
-        'Tillatelsen kan være gitt, men enheten kunne ikke registreres. Prøv igjen under Varslingsinnstillinger.'
+        'Kunne ikke aktivere varsler',
+        'Tillatelsen kan være gitt, men enheten kunne ikke registreres. Prøv igjen under Varslinger i innstillingene.'
       );
     } finally {
       setRequesting(false);
@@ -58,21 +86,22 @@ export function NotificationPrompt() {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={snooze}>
       <View style={styles.backdrop}>
         <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
           <View style={[styles.iconWrap, { backgroundColor: `${theme.brand}1F` }]}>
             <Ionicons name="notifications-outline" size={26} color={theme.brand} />
           </View>
           <ThemedText type="heading" style={styles.title}>
-            Ønsker du å motta varslinger?
+            Vil du tillate varsler fra oss?
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.body}>
-            Vi varsler deg når du får en ny oppgave, noen fullfører noe i kollektivet, eller når det
-            legges til en ny utgift.
+            Vi ønsker å varsle deg om oppgaver og chatter: når du får en ny oppgave, noen
+            skriver i kollektivet, eller en utgift venter på deg. Du velger selv hva du vil ha
+            under Varslinger i innstillingene.
           </ThemedText>
           <PrimaryButton label="Ja, varsle meg" onPress={handleAccept} loading={requesting} />
-          <Pressable onPress={dismiss} style={styles.laterButton} hitSlop={Spacing.two}>
+          <Pressable onPress={snooze} style={styles.laterButton} hitSlop={Spacing.two}>
             <ThemedText type="small" themeColor="textSecondary">
               Ikke nå
             </ThemedText>

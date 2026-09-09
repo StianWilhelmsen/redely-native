@@ -1,11 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import useSWR, { useSWRConfig } from 'swr';
 
 import { ErrorState } from '@/components/error-state';
-import { HighlightQuote } from '@/components/highlight-quote';
 import { CollectiveHeader } from '@/components/kollektiv/collective-header';
 import { SharedGoal } from '@/components/kollektiv/shared-goal';
 import { WeekLeaderboard } from '@/components/kollektiv/week-leaderboard';
@@ -14,12 +12,12 @@ import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
 import { ThemedText } from '@/components/themed-text';
-import { FontFamily, Spacing } from '@/constants/theme';
+import { Control, FontFamily, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
-import { isoWeekNumber, quickActionFlavor } from '@/lib/weekly-summary-copy';
+import { isoWeekNumber } from '@/lib/weekly-summary-copy';
 
 export default function KollektivScreen() {
   const theme = useTheme();
@@ -53,10 +51,6 @@ export default function KollektivScreen() {
       </ScreenScroll>
     );
   }
-
-  const topHighlight = weeklyStats?.quickActionsByUser[0];
-  const highlight =
-    topHighlight && weeklyStats ? quickActionFlavor(topHighlight, weeklyStats.weekStart) : null;
 
   let daysLeftInWeek = 0;
   if (weeklyStats) {
@@ -129,26 +123,47 @@ export default function KollektivScreen() {
             <WeekPlan weekStart={weekStart} tasks={tasks ?? []} />
           </Section>
 
-          {highlight && topHighlight && (
-            <HighlightQuote text={highlight} caption={`Ukens høydepunkt · ${topHighlight.name}`} />
-          )}
-
-          {/* Secondary entry point — the main one is Hjem's ukemål bar, which is the first
-              thing anyone sees and already shows this week's live number. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Se ukesoppsummeringen"
-            onPress={() => router.push('/weekly-summary')}
-            hitSlop={Spacing.two}
-            style={({ pressed }) => [styles.summaryLink, pressed && styles.pressed]}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Se ukesoppsummeringen
-            </ThemedText>
-            <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
-          </Pressable>
+          {/* The two things this screen is a doorway to. The week plan above is a
+              summary by day; the full list, grouped by rhythm, has a screen of its own. */}
+          <View style={styles.actions}>
+            <ActionButton label="Se alle oppgaver" primary onPress={() => router.push('/tasks')} />
+            <ActionButton label="Inviter til kollektivet" onPress={() => router.push('/invite')} />
+          </View>
         </>
       )}
     </ScreenScroll>
+  );
+}
+
+function ActionButton({
+  label,
+  primary,
+  onPress,
+}: {
+  label: string;
+  primary?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionButton,
+        primary
+          ? { backgroundColor: theme.brand, borderColor: theme.brand }
+          : { backgroundColor: theme.background, borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}>
+      <ThemedText
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        style={[styles.actionLabel, { color: primary ? theme.onBrand : theme.text }]}>
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -208,14 +223,29 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 30,
   },
-  summaryLink: {
+  actions: {
     flexDirection: 'row',
-    alignSelf: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  // Side by side where the width allows, stacked where it does not - the second label
+  // is long, and a button whose text wraps reads as broken.
+  actionButton: {
+    flexGrow: 1,
+    flexBasis: 150,
+    minHeight: Control.height,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Control.radius,
+    borderWidth: 1.5,
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: Spacing.one,
+    justifyContent: 'center',
+  },
+  actionLabel: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
 });

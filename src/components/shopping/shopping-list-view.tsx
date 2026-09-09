@@ -230,53 +230,51 @@ function ItemRow({
   return (
     // layout, not just entering: ticking an item moves it from one section to the other,
     // and gliding there keeps it obvious which item just moved.
-    <AnimatedPressable
-      entering={rowEntrance(index)}
-      layout={rowTransition}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: item.purchased }}
-      accessibilityLabel={item.name}
-      accessibilityHint="Hold inne for å fjerne varen"
-      disabled={busy}
-      onPress={onToggle}
-      onLongPress={onDelete}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View
-        style={[
-          styles.checkbox,
-          item.purchased
-            ? { backgroundColor: theme.brand, borderColor: theme.brand }
-            : { borderColor: theme.border },
-        ]}>
-        {item.purchased && (
-          <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
-            <Ionicons name="checkmark" size={15} color={theme.onBrand} />
-          </Animated.View>
+    <Animated.View entering={rowEntrance(index)} layout={rowTransition}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.purchased }}
+        accessibilityLabel={item.name}
+        accessibilityHint="Hold inne for å fjerne varen"
+        disabled={busy}
+        onPress={onToggle}
+        onLongPress={onDelete}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+        <View
+          style={[
+            styles.checkbox,
+            item.purchased
+              ? { backgroundColor: theme.brand, borderColor: theme.brand }
+              : { borderColor: theme.border },
+          ]}>
+          {item.purchased && (
+            <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
+              <Ionicons name="checkmark" size={15} color={theme.onBrand} />
+            </Animated.View>
+          )}
+        </View>
+
+        <ThemedText
+          type="smallBold"
+          numberOfLines={1}
+          themeColor={item.purchased ? 'textSecondary' : 'text'}
+          style={[styles.name, item.purchased && styles.struck]}>
+          {item.name}
+        </ThemedText>
+
+        {item.addedBy && (
+          <AvatarBadge
+            userId={item.addedBy.id}
+            name={item.addedBy.name}
+            pictureUrl={item.addedBy.pictureUrl}
+            shape="circle"
+            size={24}
+          />
         )}
-      </View>
-
-      <ThemedText
-        type="smallBold"
-        numberOfLines={1}
-        themeColor={item.purchased ? 'textSecondary' : 'text'}
-        style={[styles.name, item.purchased && styles.struck]}>
-        {item.name}
-      </ThemedText>
-
-      {item.addedBy && (
-        <AvatarBadge
-          userId={item.addedBy.id}
-          name={item.addedBy.name}
-          pictureUrl={item.addedBy.pictureUrl}
-          shape="circle"
-          size={24}
-        />
-      )}
-    </AnimatedPressable>
+      </Pressable>
+    </Animated.View>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   addRow: {

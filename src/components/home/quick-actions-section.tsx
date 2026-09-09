@@ -28,7 +28,7 @@ type Props = {
  */
 export function QuickActionsSection({ actions, onComplete }: Props) {
   return (
-    <Section title="Småoppgaver" meta="trykk for å telle" variant="eyebrow">
+    <Section title="Småjobber" meta="trykk for å telle" variant="eyebrow">
       <View style={styles.grid}>
         {actions.map((action) => (
           <QuickActionCard key={action.key} action={action} onComplete={onComplete} />

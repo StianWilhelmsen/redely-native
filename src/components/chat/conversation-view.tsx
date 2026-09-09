@@ -305,11 +305,14 @@ export function ConversationView({
     return map;
   }, [allMessages, readStates, members, me?.id]);
 
+  // Keyed on the count, not the list: a new message should land the view at the bottom,
+  // a read receipt or edit arriving on an existing one should not yank it there.
+  const messageCount = messages?.length ?? 0;
   useEffect(() => {
-    if (messages && messages.length > 0) {
+    if (messageCount > 0) {
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
     }
-  }, [messages?.length]);
+  }, [messageCount]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';

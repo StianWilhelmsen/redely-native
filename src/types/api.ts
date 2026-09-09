@@ -43,6 +43,9 @@ export type Task = {
   repeatFrequency: RepeatFrequency;
   /** Only meaningful when repeatFrequency isn't NONE: rotate between members vs. always the same person. */
   rotateAssignee: boolean;
+  /** Ties the weekly rows of one recurring chore together. Opaque; absent from a backend
+   *  older than the field's exposure, so callers keep a fallback. */
+  recurrenceGroupId?: string | null;
 };
 
 export type CreateTaskInput = {
@@ -301,4 +304,8 @@ export type BillingStatus = {
   pricePerMonthNok: number;
   pricePerPersonNok: number;
   isPayer: boolean;
+  /** Who bought the plan - null until someone has. */
+  payerName: string | null;
+  /** When the current plan was bought; the welcome screen is shown once per value. */
+  planStartedAt: string | null;
 };

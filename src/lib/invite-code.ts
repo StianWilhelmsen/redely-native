@@ -1,3 +1,5 @@
+import * as Linking from 'expo-linking';
+
 /**
  * Invite codes are stored bare on the backend (5 characters from an alphabet that omits
  * easily-confused glyphs, see InviteService) but always shown with a short prefix, as
@@ -26,4 +28,13 @@ export function normalizeInviteCode(raw: string): string {
       ? cleaned.slice(PREFIX.length)
       : cleaned;
   return bare.slice(0, INVITE_CODE_LENGTH);
+}
+
+/**
+ * What the QR code carries: a link that opens the app straight at the join screen, so a
+ * phone camera does the typing. In a dev client this resolves to an exp:// URL and in a
+ * store build to the app's own scheme - expo-linking works out which.
+ */
+export function inviteLink(code: string): string {
+  return Linking.createURL('join', { queryParams: { code } });
 }

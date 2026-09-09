@@ -19,12 +19,14 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { OfflineBanner } from '@/components/offline-banner';
 import { PrimaryButton } from '@/components/primary-button';
 import { RefreshSpinner } from '@/components/refresh-spinner';
+import { SubscriptionWelcomeGate } from '@/components/subscription/subscription-welcome-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { CollectiveSocketProvider, useCollectiveEvent } from '@/lib/collective-socket';
+import { clearPendingInviteCode } from '@/lib/pending-invite';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 import { ensurePurchasesConfigured, syncPurchasesIdentity } from '@/lib/purchases';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
@@ -125,6 +127,9 @@ function RootNavigator() {
     syncPurchasesIdentity(collectiveId).catch((error) => {
       console.warn('Could not sync purchases identity', error);
     });
+    // A QR code scanned while signed out is for joining a collective; someone who signs
+    // in and turns out to have one already should not carry it around until they leave.
+    clearPendingInviteCode();
   }, [collectiveId]);
 
   // Pushed the instant RevenueCatWebhookController finishes processing a purchase -
@@ -156,14 +161,34 @@ function RootNavigator() {
 
     const redirect = (notification: Notifications.Notification): boolean => {
       const url = notification.request.content.data?.url;
-      if (typeof url !== 'string' || !url.startsWith('/weekly-summary')) return false;
+      if (typeof url !== 'string') return false;
 
-      const weekStart = /[?&]weekStart=(\d{4}-\d{2}-\d{2})/.exec(url)?.[1];
-      router.push({
-        pathname: '/weekly-summary',
-        params: weekStart ? { weekStart } : {},
-      });
-      return true;
+      if (url.startsWith('/weekly-summary')) {
+        const weekStart = /[?&]weekStart=(\d{4}-\d{2}-\d{2})/.exec(url)?.[1];
+        router.push({
+          pathname: '/weekly-summary',
+          params: weekStart ? { weekStart } : {},
+        });
+        return true;
+      }
+
+      if (url.startsWith('/subscription-welcome')) {
+        const plan = /[?&]plan=(base|plus)/.exec(url)?.[1] ?? 'base';
+        const rawPayer = /[?&]payer=([^&]*)/.exec(url)?.[1];
+        let payer: string | undefined;
+        try {
+          payer = rawPayer ? decodeURIComponent(rawPayer.replace(/\+/g, ' ')) : undefined;
+        } catch {
+          payer = undefined;
+        }
+        router.push({
+          pathname: '/subscription-welcome',
+          params: payer ? { plan, payer } : { plan },
+        });
+        return true;
+      }
+
+      return false;
     };
 
     const lastResponse = Notifications.getLastNotificationResponse();
@@ -178,9 +203,8 @@ function RootNavigator() {
   }, [status, meId]);
 
   // A failed /api/me is not the same as a slow one, and this screen used to render both
-  // as an identical spinner that never resolved - the backend being asleep (Render's free
-  // tier spins down) or unreachable looked exactly like the app hanging on launch, with no
-  // way out but force-quitting. SWR keeps `data` undefined on a first-load error, so the
+  // as an identical spinner that never resolved - an unreachable backend looked exactly
+  // like the app hanging on launch, with no way out but force-quitting. SWR keeps `data` undefined on a first-load error, so the
   // error has to be checked explicitly rather than inferred from the absence of data.
   // `!isValidatingMe` matters: SWR retries a failed fetch on its own, and without it the
   // very first failure painted the error screen while a retry that would have succeeded
@@ -245,6 +269,10 @@ function RootNavigator() {
             <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
             <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
             <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
+            {/* Dark edge to edge, like the weekly story - a sheet would leave the light
+                app peeking out around it. */}
+            <Stack.Screen name="subscription-welcome" options={{ presentation: 'fullScreenModal' }} />
           </Stack.Protected>
         </Stack.Protected>
 
@@ -269,9 +297,15 @@ function RootNavigator() {
             revalidated - before anyone had seen the invite code. */}
         <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
         <Stack.Screen name="new-collective" />
+        {/* Where a scanned invite QR code lands. Ungated for the same reason: the link
+            arrives before the app knows whether its holder is signed in. */}
+        <Stack.Screen name="join" />
       </Stack>
       {status === 'signedIn' && !needsOnboarding && meId && collectiveId ? (
-        <WeeklySummaryGate userId={meId} />
+        <>
+          <WeeklySummaryGate userId={meId} />
+          <SubscriptionWelcomeGate />
+        </>
       ) : null}
     </>
   );

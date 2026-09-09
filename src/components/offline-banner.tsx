@@ -10,6 +10,14 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
+ * How long the device has to stay unreachable before we say so out loud. NetInfo's
+ * reachability probe dips to false for a moment on app resume and on every wifi/cellular
+ * handover - the same moments the live socket is reconnecting - so announcing the first
+ * "no" made the app look disconnected while it was in fact just connecting.
+ */
+const OFFLINE_GRACE_MS = 4000;
+
+/**
  * A thin banner pinned to the top of the screen whenever the device has no usable
  * network connection. Without this, every screen just shows its own generic
  * ErrorState independently on each failed fetch, which reads as scattered random
@@ -21,13 +29,37 @@ export function OfflineBanner() {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimer = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
     const unsubscribe = NetInfo.addEventListener((state) => {
       // isInternetReachable can be null while NetInfo is still determining it -
       // only treat that as offline once we have a definite "no" from either signal.
       const hasConnection = state.isConnected !== false && state.isInternetReachable !== false;
-      setOffline(!hasConnection);
+
+      if (hasConnection) {
+        // Being back is worth saying immediately; being gone has to be sat out first.
+        clearTimer();
+        setOffline(false);
+        return;
+      }
+
+      // Already counting down - restarting it on every event would keep pushing the
+      // banner away while the connection is genuinely flapping.
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        setOffline(true);
+      }, OFFLINE_GRACE_MS);
     });
-    return unsubscribe;
+
+    return () => {
+      clearTimer();
+      unsubscribe();
+    };
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({

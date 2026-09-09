@@ -10,6 +10,13 @@ const MAX_STAGGERED_ROWS = 8;
  * Deliberately not a spring: a row that overshoots and settles draws attention to the
  * animation, and this is a list you are trying to read, not a thing to watch. A short
  * fade over a few pixels of travel is enough to say "these arrived in this order".
+ *
+ * Put this on a plain `Animated.View` wrapping the row, never on an animated `Pressable`
+ * that styles itself with the `({ pressed }) => ...` callback form. Reanimated's
+ * `createAnimatedComponent` wraps whatever it finds in `style` into an array, and a
+ * Pressable only calls its style callback when the prop is a bare function - so the
+ * callback ends up sitting inside an array that nothing ever invokes and the row renders
+ * with no styles at all, which reads as a row that has silently lost its `flexDirection`.
  */
 export function rowEntrance(index: number) {
   return FadeInDown.delay(Math.min(index, MAX_STAGGERED_ROWS) * 40)

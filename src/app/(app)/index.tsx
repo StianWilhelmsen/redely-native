@@ -10,17 +10,17 @@ import { CelebrationOverlay } from '@/components/celebration/celebration-overlay
 import { useCelebration } from '@/components/celebration/use-celebration';
 import { CollectiveAvatar } from '@/components/collective-avatar';
 import { ErrorState } from '@/components/error-state';
-import { CollectiveToday } from '@/components/home/collective-today';
 import { MyTaskList } from '@/components/home/my-task-list';
 import { QuickActionsSection } from '@/components/home/quick-actions-section';
 import { TodayStats } from '@/components/home/today-stats';
+import { WeekAgenda } from '@/components/home/week-agenda';
 import { WeeklyGoalBar } from '@/components/home/weekly-goal-bar';
 import { NotificationPrompt } from '@/components/notification-prompt';
-import { PillSegmentedControl } from '@/components/pill-segmented-control';
 import { RefreshSpinner } from '@/components/refresh-spinner';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { Section } from '@/components/section';
 import { PaywallSheet } from '@/components/subscription/paywall-sheet';
+import { TrialReminder } from '@/components/subscription/trial-reminder';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, Control, Spacing } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
@@ -28,8 +28,6 @@ import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { addDays, localDateKey, parseDueDateLocal, startOfWeekMonday } from '@/lib/date-utils';
 import type { Task } from '@/types/api';
-
-type ViewMode = 'today' | 'week';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -44,19 +42,16 @@ export default function HomeScreen() {
     hasCollective ? 'tasks' : null,
     api.tasks
   );
-  const { data: activity } = useSWR(hasCollective ? 'activity' : null, api.activity);
   const { data: weeklyStats } = useSWR(hasCollective ? 'weekly-stats' : null, api.weeklyStats);
   const { data: quickActions, mutate: mutateQuickActions } = useSWR(
     hasCollective ? 'quick-actions' : null,
     api.quickActions
   );
-  const { data: members } = useSWR(hasCollective ? 'members' : null, api.members);
   // Every write in the app 402s while the subscription is lapsed - without this banner
   // that surfaced only as buttons silently doing nothing, which reads as the app being
   // broken rather than the subscription needing attention.
   const { data: billing } = useSWR(hasCollective ? 'billing-status' : null, api.billingStatus);
 
-  const [mode, setMode] = useState<ViewMode>('today');
   const [refreshing, setRefreshing] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const { message, burstKey, celebrate, dismiss } = useCelebration();
@@ -82,8 +77,8 @@ export default function HomeScreen() {
   const myTodayTasks = allTasks.filter((t) => isDueToday(t) && isMine(t));
   const myTodayOpenCount = myTodayTasks.filter((t) => !t.completed).length;
 
-  const showingToday = mode === 'today';
-  const myVisibleTasks = showingToday ? myTodayTasks : myWeekTasks;
+  const openTask = (task: Task) =>
+    router.push({ pathname: '/tasks/new', params: { id: String(task.id) } });
 
   const prevGoalReached = useRef<boolean | null>(null);
   const prevTodayOpenCount = useRef<number | null>(null);
@@ -202,16 +197,6 @@ export default function HomeScreen() {
         eyebrow={me.collective?.name}
         title="Hjem"
         headerRight={<CollectiveAvatar pictureUrl={me.collective?.pictureUrl} size={44} />}
-        headerExtra={
-          <PillSegmentedControl
-            options={[
-              { key: 'today', label: 'I dag' },
-              { key: 'week', label: 'Denne uken' },
-            ]}
-            value={mode}
-            onChange={setMode}
-          />
-        }
         refreshing={refreshing}
         onRefresh={handleRefresh}>
         {billing?.readOnly && (
@@ -243,6 +228,31 @@ export default function HomeScreen() {
           <RefreshSpinner active />
         ) : (
           <>
+            {/* A collective with no tasks at all never got its starter pack - creation
+                can be abandoned once the collective exists - and nothing below this line
+                has anything to show until it does. */}
+            {allTasks.length === 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Velg startpakke"
+                onPress={() => router.push('/starter-pack')}
+                style={({ pressed }) => [
+                  styles.subscriptionBanner,
+                  { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                  pressed && styles.pressed,
+                ]}>
+                <View style={styles.subscriptionBannerText}>
+                  <ThemedText type="smallBold">Ingen oppgaver ennå</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    En startpakke gir kollektivet ukens faste oppgaver på et par sekunder.
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" themeColor="brand">
+                  Velg pakke
+                </ThemedText>
+              </Pressable>
+            )}
+
             <TodayStats
               stats={[
                 { label: 'I dag', value: myTodayOpenCount, caption: 'for deg', emphasize: true },
@@ -261,35 +271,40 @@ export default function HomeScreen() {
 
             {weeklyStats && <WeeklyGoalBar stats={weeklyStats} />}
 
-            <Section
-              title={showingToday ? 'Dine oppgaver i dag' : 'Dine oppgaver denne uken'}
-              variant="eyebrow">
+            <Section title="Dine oppgaver i dag" variant="eyebrow">
               <MyTaskList
-                tasks={myVisibleTasks}
+                tasks={myTodayTasks}
                 onToggle={handleToggleTask}
-                onOpen={(task) =>
-                  router.push({ pathname: '/tasks/new', params: { id: String(task.id) } })
-                }
-                emptyText={
-                  showingToday
-                    ? 'Ingen oppgaver igjen i dag. 🎉'
-                    : 'Ingen oppgaver igjen denne uka. 🎉'
-                }
+                onOpen={openTask}
+                emptyText="Ingen oppgaver igjen i dag. 🎉"
               />
             </Section>
 
-            {members && members.length > 1 && (
-              <Section
-                title="Resten av kollektivet"
-                meta={showingToday ? 'i dag' : 'denne uken'}
-                variant="eyebrow">
-                <CollectiveToday
-                  members={members}
+            {/* The whole household's week from today on, day by day. Your own chores due
+                today already sit in the list above, so today's band leaves them out. */}
+            <Section title="Resten av uka" meta="hele kollektivet" variant="eyebrow">
+              <WeekAgenda
+                tasks={allTasks}
+                meId={me.id}
+                from={today}
+                to={weekEnd}
+                hideMineOn={todayKey}
+                onToggle={handleToggleTask}
+                onOpen={openTask}
+                emptyText="Ingenting mer planlagt denne uka."
+              />
+            </Section>
+
+            {todayKey !== localDateKey(weekStart) && (
+              <Section title="Tidligere i uka" variant="eyebrow">
+                <WeekAgenda
                   tasks={allTasks}
-                  activity={activity}
                   meId={me.id}
-                  periodEnd={showingToday ? today : weekEnd}
-                  periodLabel={showingToday ? 'i dag' : 'denne uken'}
+                  from={weekStart}
+                  to={addDays(today, -1)}
+                  onToggle={handleToggleTask}
+                  onOpen={openTask}
+                  emptyText="Ingen oppgaver tidligere i uka."
                 />
               </Section>
             )}
@@ -317,7 +332,8 @@ export default function HomeScreen() {
       </Pressable>
 
       <CelebrationOverlay message={message} burstKey={burstKey} onDismiss={dismiss} />
-      <NotificationPrompt />
+      <NotificationPrompt collectiveId={me.collective?.id ?? null} />
+      <TrialReminder billing={billing} />
       <PaywallSheet visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </View>
   );

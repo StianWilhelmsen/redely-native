@@ -12,22 +12,8 @@ import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { formatShortDate, localDateKey, parseDueDateLocal } from '@/lib/date-utils';
+import { POINT_OPTIONS, REPEAT_OPTIONS } from '@/lib/task-copy';
 import type { RepeatFrequency } from '@/types/api';
-
-const REPEAT_OPTIONS: { key: RepeatFrequency; label: string }[] = [
-  { key: 'NONE', label: 'Én gang' },
-  { key: 'WEEKLY', label: 'Ukentlig' },
-  { key: 'DAILY', label: 'Daglig' },
-];
-
-// Deliberately narrow (and labelled by effort rather than raw numbers): rotation already
-// evens out who takes the heavy chores, so a wider spread would mostly invite inflating
-// your own tasks. Mirrors TaskService.MIN/MAX_TASK_POINTS on the backend.
-const POINT_OPTIONS: { value: number; label: string }[] = [
-  { value: 1, label: 'Liten' },
-  { value: 2, label: 'Vanlig' },
-  { value: 3, label: 'Stor' },
-];
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -202,6 +188,13 @@ export default function TaskFormScreen() {
             })}
           </View>
         </View>
+
+        {editingId && existingTask && existingTask.repeatFrequency !== 'NONE' && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Endringer gjelder også kommende uker som ikke er gjort ennå. Uker som er gjort,
+            beholder det de ble gjort som.
+          </ThemedText>
+        )}
 
         {repeatFrequency !== 'NONE' && (
           <View style={styles.field}>

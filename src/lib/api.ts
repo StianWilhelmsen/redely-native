@@ -32,6 +32,19 @@ export class ApiError extends Error {
 }
 
 /**
+ * A request that never reached the backend at all. React Native rejects fetch with the
+ * same opaque "Network request failed" whether the phone is in flight mode, mid-handover
+ * or the service is restarting, and call sites put `err.message` straight in an alert - so
+ * English plumbing was what people actually read. Said once, here, in Norwegian.
+ */
+export class ConnectionError extends Error {
+  constructor() {
+    super('Fikk ikke kontakt med serveren. Prøv igjen om litt.');
+    this.name = 'ConnectionError';
+  }
+}
+
+/**
  * Call sites show `err.message` straight to the user, so a structured error body has to be
  * unwrapped here or the raw JSON ends up in an alert. The backend sends
  * `{"error": "...", "message": "..."}` for the cases it explains in Norwegian - notably
@@ -50,14 +63,17 @@ function errorMessageFrom(body: string): string {
 }
 
 /**
- * Backoff for repeatable reads, sized for a cold start rather than a blip: the backend
- * sleeps when idle and can take the better part of a minute to wake, during which every
- * attempt fails fast. The old budget of ~2.5s ran out long before it was up, so the very
- * first request after a quiet period reported "kan ikke koble til serveren" on a working
- * connection - and then succeeded on SWR's next attempt, which is why it only flashed.
+ * Backoff for repeatable reads. The backend does not sleep - it is not on Render's free
+ * tier - so this is not about waiting out a cold start: it covers the gaps a running
+ * service still has. A deploy takes the instance out for a few seconds (502/503, which
+ * isRetryableStatus already treats as worth repeating), and a phone moving between wifi
+ * and mobile drops whatever was in flight.
  *
- * Spending ~30s here instead keeps the whole wait inside one attempt, so the screen shows
- * a spinner throughout rather than flickering between spinner and error.
+ * ~30s of patience keeps the whole wait inside one attempt, so the screen shows a spinner
+ * throughout rather than flickering between spinner and error. An earlier budget of ~2.5s
+ * gave up inside those gaps and reported "kan ikke koble til serveren" on a working
+ * connection - then succeeded on SWR's next attempt, which is why it only flashed. A
+ * genuinely offline device is told so by OfflineBanner meanwhile.
  */
 const GET_RETRY_DELAYS_MS = [700, 1800, 4000, 8000, 15000];
 
@@ -70,9 +86,9 @@ function wait(ms: number): Promise<void> {
 }
 
 /**
- * Read requests are safe to repeat. A sleeping backend or a brief network transition can
- * otherwise turn one failed request into a full-screen error even though the next attempt
- * would work. Mutations are deliberately never retried because repeating a write could
+ * Read requests are safe to repeat. A restarting instance or a brief network transition
+ * can otherwise turn one failed request into a full-screen error even though the next
+ * attempt would work. Mutations are deliberately never retried because repeating a write could
  * create duplicates.
  */
 async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
@@ -86,13 +102,19 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
       const hasAnotherAttempt = attempt < attempts - 1;
       if (!hasAnotherAttempt || !isRetryableStatus(response.status)) return response;
     } catch (error) {
-      if (attempt === attempts - 1) throw error;
+      // Every rejection from fetch means the same thing to the person holding the phone:
+      // we never got through. The underlying error is plumbing ("Network request failed"),
+      // so it goes to the log and the user gets the sentence above.
+      if (attempt === attempts - 1) {
+        if (__DEV__) console.warn('[api] request failed', url, error);
+        throw new ConnectionError();
+      }
     }
 
     await wait(GET_RETRY_DELAYS_MS[attempt]);
   }
 
-  throw new Error('Kunne ikke koble til serveren.');
+  throw new ConnectionError();
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -155,7 +177,6 @@ export const api = {
     notifyChat: boolean;
   }) =>
     request<Me>('/api/me/notification-preferences', { method: 'PATCH', body: JSON.stringify(prefs) }),
-  sendTestNotification: () => request<void>('/api/me/test-notification', { method: 'POST' }),
   members: () => request<Member[]>('/api/collectives/members'),
   createCollective: (name: string) =>
     request<Collective>('/api/collectives', { method: 'POST', body: JSON.stringify({ name }) }),
@@ -271,4 +292,11 @@ export const api = {
       body: JSON.stringify({ messageId, peerId: peerId ?? null }),
     }),
   billingStatus: () => request<BillingStatus>('/api/billing/status'),
+  /** Tells the backend who just bought which plan - RevenueCat's webhook only knows the
+   *  collective - so the rest of the household can be welcomed by name. */
+  confirmPurchase: (productId: string) =>
+    request<BillingStatus>('/api/billing/purchase-completed', {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
 };

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,7 @@ import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError } from '@/lib/api';
 import { INVITE_CODE_LENGTH, normalizeInviteCode } from '@/lib/invite-code';
+import { takePendingInviteCode } from '@/lib/pending-invite';
 import { forgetProviderName, getRememberedProviderName } from '@/lib/provider-profile';
 
 const STEP_COUNT = 2;
@@ -55,6 +56,17 @@ export default function OnboardingScreen() {
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
   const codeInputRef = useRef<TextInput>(null);
+  // A code that came in through a scanned QR (see app/join.tsx) is already the answer to
+  // this step's question, so it is joined as soon as the step is reached rather than
+  // shown in the field for the person to confirm by hand.
+  const [autoJoin, setAutoJoin] = useState(false);
+
+  useEffect(() => {
+    const pending = takePendingInviteCode();
+    if (!pending) return;
+    setInviteCode(pending);
+    setAutoJoin(true);
+  }, []);
 
   // The backend stands in the email's local part (or "Ny bruker") when the provider gave
   // no name at all - both are placeholders, not something to hand back to the user.
@@ -162,30 +174,41 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleJoinCollective = async () => {
-    if (inviteCode.length < INVITE_CODE_LENGTH) {
-      setError('Koden er på fem tegn.');
-      return;
-    }
-    setJoining(true);
-    setError(null);
-    try {
-      await api.joinCollective(inviteCode);
-      await mutateMe();
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        setError('Fant ingen kollektiv med den koden.');
-      } else if (err instanceof ApiError && err.status === 410) {
-        setError('Koden er utløpt. Be om en ny fra en du bor med.');
-      } else if (err instanceof ApiError && err.status === 409) {
-        setError(err.message);
-      } else {
-        setError(err instanceof Error ? err.message : 'Noe gikk galt.');
+  const joinWithCode = useCallback(
+    async (code: string) => {
+      if (code.length < INVITE_CODE_LENGTH) {
+        setError('Koden er på fem tegn.');
+        return;
       }
-    } finally {
-      setJoining(false);
-    }
-  };
+      setJoining(true);
+      setError(null);
+      try {
+        await api.joinCollective(code);
+        await mutateMe();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setError('Fant ingen kollektiv med den koden.');
+        } else if (err instanceof ApiError && err.status === 410) {
+          setError('Koden er utløpt. Be om en ny fra en du bor med.');
+        } else if (err instanceof ApiError && err.status === 409) {
+          setError(err.message);
+        } else {
+          setError(err instanceof Error ? err.message : 'Noe gikk galt.');
+        }
+      } finally {
+        setJoining(false);
+      }
+    },
+    [mutateMe]
+  );
+
+  const handleJoinCollective = () => joinWithCode(inviteCode);
+
+  useEffect(() => {
+    if (!autoJoin || step !== 1 || joining || inviteCode.length < INVITE_CODE_LENGTH) return;
+    setAutoJoin(false);
+    joinWithCode(inviteCode);
+  }, [autoJoin, step, joining, inviteCode, joinWithCode]);
 
   // The keyboard (or a paste of the whole "RYD-XXXXX" a housemate shared) can hand us
   // anything - normalize to the bare code the API expects.

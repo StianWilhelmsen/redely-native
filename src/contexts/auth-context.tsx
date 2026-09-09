@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { useSWRConfig } from 'swr';
 
+import { authErrorMessage, LocalizedAuthError } from '@/lib/auth-errors';
 import {
   clearSession,
   getSessionSnapshot,
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider,
           options: { redirectTo, skipBrowserRedirect: true },
         });
-        if (error || !data.url) throw error ?? new Error('Kunne ikke starte innlogging');
+        if (error || !data.url) throw error ?? new LocalizedAuthError('Kunne ikke starte innlogging.');
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
         if (result.type === 'success') {
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.warn(`${provider} sign-in failed`, err);
-        setSignInError(err instanceof Error ? err.message : 'Innlogging feilet');
+        setSignInError(authErrorMessage(err));
       }
     },
     [redirectTo, createSessionFromUrl]
@@ -135,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-      if (!credential.identityToken) throw new Error('Ingen identitetstoken fra Apple');
+      if (!credential.identityToken)
+        throw new LocalizedAuthError('Fikk ingen identitetstoken fra Apple. Prøv igjen.');
 
       // Only present on the first-ever authorization for this Apple ID - stash it before
       // anything can fail, see src/lib/provider-profile.ts.
@@ -167,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Dismissing the Apple sheet is a normal outcome, not a failure to report.
       if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') return;
       console.warn('apple sign-in failed', err);
-      setSignInError(err instanceof Error ? err.message : 'Innlogging feilet');
+      setSignInError(authErrorMessage(err));
     }
   }, [signInWithOAuth]);
 
@@ -175,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSignInError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setSignInError(error.message);
+      setSignInError(authErrorMessage(error));
       throw error;
     }
   }, []);
@@ -184,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSignInError(null);
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      setSignInError(error.message);
+      setSignInError(authErrorMessage(error, 'Klarte ikke å opprette kontoen. Prøv igjen.'));
       throw error;
     }
     // With email confirmation enabled (Supabase's default), signUp succeeds and sends a
@@ -199,10 +201,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     // Releasing the device's push token has to go first, because the request needs a
-    // session that still works. But it also talks to a backend that may be waking from
-    // sleep, and awaiting that outright left the button doing nothing for the best part
-    // of a minute - which reads as broken, so people press it again. Two seconds, then
-    // sign out regardless: a stale token is corrected the next time anyone signs in on
+    // session that still works. But it goes over the network, and awaiting that outright
+    // left the button doing nothing for as long as the request took to give up - which
+    // reads as broken, so people press it again. Two seconds, then sign out regardless: a stale token is corrected the next time anyone signs in on
     // this device (see UserController#registerPushToken).
     await Promise.race([
       clearPushToken(),

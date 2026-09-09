@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
@@ -104,9 +103,6 @@ export default function CollectiveSettingsScreen() {
   const [savingCollectiveName, setSavingCollectiveName] = useState(false);
   const [collectiveNameError, setCollectiveNameError] = useState<string | null>(null);
 
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [creatingInvite, setCreatingInvite] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [promotingId, setPromotingId] = useState<number | null>(null);
@@ -149,9 +145,9 @@ export default function CollectiveSettingsScreen() {
             setRemovingId(memberId);
             try {
               await api.removeMember(memberId);
-              // The backend rotated the invite when the member was removed - drop the
-              // stale code from view so nobody copies a dead one.
-              setInviteCode(null);
+              // The backend rotated the invite when the member was removed - the Inviter
+              // screen fetches a fresh one next time it opens.
+              globalMutate('collective-invite', undefined, { revalidate: false });
               await mutateMembers();
             } catch (err) {
               Alert.alert('Noe gikk galt', err instanceof Error ? err.message : 'Prøv igjen senere.');
@@ -188,23 +184,6 @@ export default function CollectiveSettingsScreen() {
     );
   };
 
-  const handleGetInvite = async () => {
-    setCreatingInvite(true);
-    try {
-      const invite = await api.createInvite();
-      setInviteCode(invite.code);
-    } finally {
-      setCreatingInvite(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (!inviteCode) return;
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   const handleLeaveCollective = () => {
     Alert.alert(
       'Forlat kollektiv',
@@ -218,7 +197,7 @@ export default function CollectiveSettingsScreen() {
             setLeaving(true);
             try {
               await api.leaveCollective();
-              setInviteCode(null);
+              globalMutate('collective-invite', undefined, { revalidate: false });
               await mutateMe();
               router.back();
             } catch (err) {
@@ -308,32 +287,7 @@ export default function CollectiveSettingsScreen() {
                   />
                 )}
                 <Separator />
-                <View style={styles.inviteRow}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Invitasjonskode
-                  </ThemedText>
-                  {inviteCode ? (
-                    <Pressable onPress={handleCopy} style={styles.inviteCodeRow}>
-                      <ThemedText type="smallBold" style={styles.inviteCode}>
-                        {inviteCode}
-                      </ThemedText>
-                      <ThemedText type="small" themeColor="brand">
-                        {copied ? 'Kopiert!' : 'Kopier'}
-                      </ThemedText>
-                    </Pressable>
-                  ) : (
-                    <Pressable onPress={handleGetInvite} disabled={creatingInvite}>
-                      <ThemedText type="small" themeColor="brand">
-                        {creatingInvite ? 'Lager…' : 'Lag kode'}
-                      </ThemedText>
-                    </Pressable>
-                  )}
-                </View>
-                {inviteCode && (
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.inviteHint}>
-                    Koden er gyldig i 7 dager.
-                  </ThemedText>
-                )}
+                <Row label="Inviter" value="QR-kode og kode" onPress={() => router.push('/invite')} />
                 <Separator />
                 <Row label="Startpakke" value="Bytt pakke" onPress={() => router.push('/starter-pack')} />
                 <Separator />
@@ -485,23 +439,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + Spacing.half,
     fontSize: 16,
-  },
-  inviteRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-  },
-  inviteCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  inviteCode: {
-    letterSpacing: 2,
-  },
-  inviteHint: {
-    paddingBottom: Spacing.two,
   },
   emptyRow: {
     paddingVertical: Spacing.three,

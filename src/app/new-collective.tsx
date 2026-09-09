@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,13 +19,15 @@ import useSWR from 'swr';
 
 import { InviteStep } from '@/components/new-collective/invite-step';
 import { StarterPackStep } from '@/components/new-collective/starter-pack-step';
+import { TRIAL_STEP_FOOTNOTE, TrialStep } from '@/components/new-collective/trial-step';
 import { ThemedText } from '@/components/themed-text';
-import { Control, FontFamily, Fonts, Radii, Spacing } from '@/constants/theme';
+import { Control, FontFamily, Fonts, Radii, Spacing, Theme } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 
-const STEP_COUNT = 3;
+const STEP_COUNT = 4;
+const TRIAL_STEP = 3;
 const PHOTO_BOX_SIZE = 140;
 const NAME_SUGGESTIONS = ['Adressen', 'Kollektivet på Grünerløkka', 'Hjemme'];
 
@@ -79,6 +82,14 @@ export default function NewCollectiveScreen() {
     revalidateOnFocus: false,
   });
   const { data: members } = useSWR(step === 2 ? 'members' : null, api.members);
+  // The trial's end date is set server-side when the collective is created; the last
+  // step prints it on the card.
+  const { data: billing } = useSWR(step === TRIAL_STEP ? 'billing-status' : null, api.billingStatus);
+
+  // The last step is dark whatever the device scheme - a handover, not a form - so the
+  // chrome around it (progress bar, button) follows the step rather than the theme.
+  const dark = step === TRIAL_STEP;
+  const chrome = dark ? Theme.dark : theme;
 
   // The design's default: the middle pack, once the list has loaded.
   const effectivePackId = selectedPackId ?? packs?.[1]?.id ?? packs?.[0]?.id ?? null;
@@ -196,18 +207,20 @@ export default function NewCollectiveScreen() {
   const handleNext = () => {
     if (step === 0) return saveIdentity();
     if (step === 1) return applyStarterPack();
+    if (step === 2) return setStep(TRIAL_STEP);
     return finish();
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.background, paddingTop: insets.top }]}>
+    <View style={[styles.root, { backgroundColor: chrome.background, paddingTop: insets.top }]}>
+      <StatusBar style={dark ? 'light' : 'auto'} />
       <View style={styles.progressRow}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Tilbake"
           onPress={handleBack}
           hitSlop={Spacing.three}>
-          <Ionicons name="chevron-back" size={18} color={theme.textSecondary} />
+          <Ionicons name="chevron-back" size={18} color={chrome.textSecondary} />
         </Pressable>
         <View style={styles.progressTrack}>
           {Array.from({ length: STEP_COUNT }, (_, i) => (
@@ -215,18 +228,23 @@ export default function NewCollectiveScreen() {
               key={i}
               style={[
                 styles.progressSegment,
-                { backgroundColor: i <= step ? theme.brand : theme.backgroundSelected },
+                { backgroundColor: i <= step ? chrome.brand : chrome.backgroundSelected },
               ]}
             />
           ))}
         </View>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.stepCounter}>
+        <ThemedText style={[styles.stepCounter, { color: chrome.textSecondary }]} type="small">
           {step + 1} av {STEP_COUNT}
         </ThemedText>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.four }]}
+        contentContainerStyle={[
+          styles.content,
+          // The pack list runs past the bottom of the screen, so that step's button ends up
+          // at the very end of the scroll - extra room below lifts it off the screen edge.
+          { paddingBottom: insets.bottom + (step === 1 ? Spacing.six : Spacing.four) },
+        ]}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}>
@@ -349,6 +367,10 @@ export default function NewCollectiveScreen() {
           />
         )}
 
+        {step === TRIAL_STEP && (
+          <TrialStep collectiveName={me?.collective?.name} trialEndsAt={billing?.trialEndsAt} />
+        )}
+
         {error && (
           <ThemedText type="small" themeColor="danger" style={styles.error}>
             {error}
@@ -363,15 +385,17 @@ export default function NewCollectiveScreen() {
           disabled={submitting}
           style={({ pressed }) => [
             styles.primaryButton,
-            { backgroundColor: theme.brand },
+            // On the dark step the button is the one light surface, so it reads as the
+            // way forward without competing with the brand-coloured card above it.
+            { backgroundColor: dark ? Theme.light.backgroundElement : theme.brand },
             submitting && styles.disabled,
             pressed && !submitting && styles.pressed,
           ]}>
           {submitting ? (
-            <ActivityIndicator color={theme.onBrand} />
+            <ActivityIndicator color={dark ? Theme.light.text : theme.onBrand} />
           ) : (
-            <ThemedText style={[styles.controlLabel, { color: theme.onBrand }]}>
-              {step === 2 ? 'Gå til kollektivet' : 'Neste'}
+            <ThemedText style={[styles.controlLabel, { color: dark ? Theme.light.text : theme.onBrand }]}>
+              {step === TRIAL_STEP ? 'Start' : 'Neste'}
             </ThemedText>
           )}
         </Pressable>
@@ -379,6 +403,11 @@ export default function NewCollectiveScreen() {
         {step === 2 && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
             Du kan alltid invitere fra Kollektiv-fanen.
+          </ThemedText>
+        )}
+        {step === TRIAL_STEP && (
+          <ThemedText type="small" style={[styles.footnote, { color: Theme.dark.textSecondary }]}>
+            {TRIAL_STEP_FOOTNOTE}
           </ThemedText>
         )}
       </ScrollView>

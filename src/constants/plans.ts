@@ -38,6 +38,19 @@ export const PLUS_PLAN: Plan = {
 
 export const PLANS: Plan[] = [BASE_PLAN, PLUS_PLAN];
 
+/** The cheapest plan with room for everyone who lives there today. */
+export function planThatFits(memberCount: number): Plan {
+  return PLANS.find((plan) => memberCount <= plan.memberLimit) ?? PLUS_PLAN;
+}
+
+/** Whole days left of a trial, or null once it has run out (or never existed). */
+export function trialDaysLeft(trialEndsAt: string | null): number | null {
+  if (!trialEndsAt) return null;
+  const ms = new Date(trialEndsAt).getTime() - Date.now();
+  if (ms <= 0) return null;
+  return Math.ceil(ms / 86_400_000);
+}
+
 /**
  * Which plan a collective is on. The member limit is the only thing the backend reports
  * that distinguishes them (it sets it from the purchased product id - see

@@ -39,57 +39,57 @@ export function MyTaskList({ tasks, onToggle, onOpen, emptyText, trailing }: Pro
   return (
     <View>
       {tasks.map((task, index) => (
-        <AnimatedPressable
+        <Animated.View
           key={task.id}
           entering={rowEntrance(index)}
-          layout={rowTransition}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: task.completed }}
-          accessibilityLabel={`${task.title}, ${task.points} poeng`}
-          accessibilityHint="Hold inne for å endre oppgaven"
-          onPress={() => onToggle(task)}
-          onLongPress={() => onOpen(task)}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-          <View
-            style={[
-              styles.checkbox,
-              task.completed
-                ? { backgroundColor: theme.brand, borderColor: theme.brand }
-                : { borderColor: theme.border },
-            ]}>
-            {/* Zooms in on its own rather than appearing with the fill, so ticking a box
-                has a moment of its own instead of the row just changing colour. */}
-            {task.completed && (
-              <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
-                <Ionicons name="checkmark" size={15} color={theme.onBrand} />
-              </Animated.View>
-            )}
-          </View>
-
-          <View style={styles.text}>
-            <ThemedText
-              type="smallBold"
-              numberOfLines={1}
-              style={task.completed && styles.completed}>
-              {task.title}
-            </ThemedText>
-            {!!task.description && (
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                {task.description}
+          layout={rowTransition}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: task.completed }}
+            accessibilityLabel={`${task.title}, ${task.points} poeng`}
+            accessibilityHint="Hold inne for å endre oppgaven"
+            onPress={() => onToggle(task)}
+            onLongPress={() => onOpen(task)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            <View style={styles.text}>
+              <ThemedText
+                type="smallBold"
+                numberOfLines={1}
+                style={task.completed && styles.completed}>
+                {task.title}
               </ThemedText>
-            )}
-          </View>
+              {!!task.description && (
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  {task.description}
+                </ThemedText>
+              )}
+            </View>
 
-          <ThemedText type="small" themeColor="textSecondary">
-            {trailing ? trailing(task) : `${task.points} p`}
-          </ThemedText>
-        </AnimatedPressable>
+            <ThemedText type="small" themeColor="textSecondary">
+              {trailing ? trailing(task) : `${task.points} p`}
+            </ThemedText>
+
+            <View
+              style={[
+                styles.checkbox,
+                task.completed
+                  ? { backgroundColor: theme.brand, borderColor: theme.brand }
+                  : { borderColor: theme.border },
+              ]}>
+              {/* Zooms in on its own rather than appearing with the fill, so ticking a box
+                  has a moment of its own instead of the row just changing colour. */}
+              {task.completed && (
+                <Animated.View entering={ZoomIn.duration(180).easing(Easing.out(Easing.quad))}>
+                  <Ionicons name="checkmark" size={15} color={theme.onBrand} />
+                </Animated.View>
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
       ))}
     </View>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   row: {

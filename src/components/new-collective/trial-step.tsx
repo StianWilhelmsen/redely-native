@@ -27,15 +27,27 @@ const HEADLINE_DELAY = 520;
 const FIRST_LINE_DELAY = 900;
 const LINE_STAGGER = 170;
 
-function trialDays(trialEndsAt: string | null | undefined): number {
-  if (!trialEndsAt) return 30;
-  const days = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000);
-  return days > 0 ? days : 30;
+/**
+ * The trial's end as a Date, or null when there is nothing to print yet: billing status
+ * still loading, or an end that has already passed. The two have to be judged together -
+ * the day count used to fall back to 30 on an expired trial while the date printed the
+ * real (past) instant, and the card read "30 dager · Til <today>". new-collective skips
+ * this step for a spent trial, so the null case here is only ever "not loaded yet".
+ */
+function trialEnd(trialEndsAt: string | null | undefined): Date | null {
+  if (!trialEndsAt) return null;
+  const end = new Date(trialEndsAt);
+  return end.getTime() > Date.now() ? end : null;
 }
 
-function formatEnd(trialEndsAt: string | null | undefined): string {
-  const end = trialEndsAt ? new Date(trialEndsAt) : new Date(Date.now() + 30 * 86_400_000);
-  return end.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+function trialDays(end: Date | null): number {
+  if (!end) return 30;
+  return Math.ceil((end.getTime() - Date.now()) / 86_400_000);
+}
+
+function formatEnd(end: Date | null): string {
+  const date = end ?? new Date(Date.now() + 30 * 86_400_000);
+  return date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -44,7 +56,8 @@ function formatEnd(trialEndsAt: string | null | undefined): string {
  * a time - each is a separate promise, and reading them as a list is the point.
  */
 export function TrialStep({ collectiveName, trialEndsAt }: Props) {
-  const days = trialDays(trialEndsAt);
+  const end = trialEnd(trialEndsAt);
+  const days = trialDays(end);
 
   return (
     <View style={styles.root}>
@@ -56,7 +69,7 @@ export function TrialStep({ collectiveName, trialEndsAt }: Props) {
         <MembershipCard
           variant="trial"
           name={collectiveName || 'Kollektivet'}
-          details={[`${days} dager`, `Til ${formatEnd(trialEndsAt)}`]}
+          details={[`${days} dager`, `Til ${formatEnd(end)}`]}
           width={280}
         />
       </Animated.View>

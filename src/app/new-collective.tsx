@@ -21,13 +21,26 @@ import { InviteStep } from '@/components/new-collective/invite-step';
 import { StarterPackStep } from '@/components/new-collective/starter-pack-step';
 import { TRIAL_STEP_FOOTNOTE, TrialStep } from '@/components/new-collective/trial-step';
 import { ThemedText } from '@/components/themed-text';
+import { trialDaysLeft } from '@/constants/plans';
 import { Control, FontFamily, Fonts, Radii, Spacing, Theme } from '@/constants/theme';
 import { useMe } from '@/hooks/use-me';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import type { BillingStatus } from '@/types/api';
 
 const STEP_COUNT = 4;
 const TRIAL_STEP = 3;
+
+/**
+ * The backend hands out one free trial per person, ever (SubscriptionService): someone
+ * who creates a second collective gets a trial that is already over. The last step
+ * presents the free month as a gift, and there is no honest way to present that one -
+ * so the step is skipped and the collective starts read-only, with the paywall sheet
+ * saying so in its own words.
+ */
+function trialAlreadySpent(billing: BillingStatus): boolean {
+  return billing.status === 'TRIALING' && trialDaysLeft(billing.trialEndsAt) == null;
+}
 const PHOTO_BOX_SIZE = 140;
 const NAME_SUGGESTIONS = ['Adressen', 'Kollektivet på Grünerløkka', 'Hjemme'];
 
@@ -83,8 +96,15 @@ export default function NewCollectiveScreen() {
   });
   const { data: members } = useSWR(step === 2 ? 'members' : null, api.members);
   // The trial's end date is set server-side when the collective is created; the last
-  // step prints it on the card.
-  const { data: billing } = useSWR(step === TRIAL_STEP ? 'billing-status' : null, api.billingStatus);
+  // step prints it on the card. Fetched from the invite step on, so that by the time
+  // "Neste" is pressed there it is usually known whether the last step applies at all.
+  const { data: billing, mutate: mutateBilling } = useSWR(
+    step >= 2 ? 'billing-status' : null,
+    api.billingStatus
+  );
+  const skipTrialStep = !!billing && trialAlreadySpent(billing);
+  const stepCount = skipTrialStep ? STEP_COUNT - 1 : STEP_COUNT;
+  const lastStep = skipTrialStep ? 2 : TRIAL_STEP;
 
   // The last step is dark whatever the device scheme - a handover, not a form - so the
   // chrome around it (progress bar, button) follows the step rather than the theme.
@@ -204,10 +224,25 @@ export default function NewCollectiveScreen() {
     else setStep((s) => s - 1);
   };
 
+  const leaveInviteStep = async () => {
+    // Usually already loaded (see the hook above); otherwise wait for it rather than
+    // guess, so the trial step is never shown for a trial that is already spent. If the
+    // read fails, the trial step still opens and prints its 30-day fallback - a wrong
+    // promise on a failed request beats a dead button.
+    let status = billing;
+    if (!status) {
+      setSubmitting(true);
+      status = await mutateBilling().catch(() => undefined);
+      setSubmitting(false);
+    }
+    if (status && trialAlreadySpent(status)) return finish();
+    setStep(TRIAL_STEP);
+  };
+
   const handleNext = () => {
     if (step === 0) return saveIdentity();
     if (step === 1) return applyStarterPack();
-    if (step === 2) return setStep(TRIAL_STEP);
+    if (step === 2) return leaveInviteStep();
     return finish();
   };
 
@@ -223,7 +258,7 @@ export default function NewCollectiveScreen() {
           <Ionicons name="chevron-back" size={18} color={chrome.textSecondary} />
         </Pressable>
         <View style={styles.progressTrack}>
-          {Array.from({ length: STEP_COUNT }, (_, i) => (
+          {Array.from({ length: stepCount }, (_, i) => (
             <View
               key={i}
               style={[
@@ -234,7 +269,7 @@ export default function NewCollectiveScreen() {
           ))}
         </View>
         <ThemedText style={[styles.stepCounter, { color: chrome.textSecondary }]} type="small">
-          {step + 1} av {STEP_COUNT}
+          {step + 1} av {stepCount}
         </ThemedText>
       </View>
 
@@ -395,7 +430,7 @@ export default function NewCollectiveScreen() {
             <ActivityIndicator color={dark ? Theme.light.text : theme.onBrand} />
           ) : (
             <ThemedText style={[styles.controlLabel, { color: dark ? Theme.light.text : theme.onBrand }]}>
-              {step === TRIAL_STEP ? 'Start' : 'Neste'}
+              {step === lastStep ? 'Start' : 'Neste'}
             </ThemedText>
           )}
         </Pressable>

@@ -21,8 +21,14 @@ import { usePalette } from '@/theme/palette-context';
 type Mode = 'signIn' | 'signUp';
 
 export default function SignInScreen() {
-  const { signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signInError } =
-    useAuth();
+  const {
+    signInWithGoogle,
+    signInWithApple,
+    signInWithPassword,
+    signUpWithPassword,
+    sendPasswordReset,
+    signInError,
+  } = useAuth();
   const theme = useTheme();
   const { scheme } = usePalette();
   const insets = useSafeAreaInsets();
@@ -30,11 +36,13 @@ export default function SignInScreen() {
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | 'password' | null>(
-    null
-  );
-  /** Non-error feedback - currently only "we sent you a confirmation mail". */
+  const [pendingProvider, setPendingProvider] = useState<
+    'google' | 'apple' | 'password' | 'reset' | null
+  >(null);
+  /** Non-error feedback: "we sent you a confirmation mail" or "we sent you a reset link". */
   const [notice, setNotice] = useState<string | null>(null);
+  /** Problems raised on this screen rather than by the auth context (the reset flow). */
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setPendingProvider(provider);
@@ -45,10 +53,32 @@ export default function SignInScreen() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const trimmed = email.trim();
+    setNotice(null);
+    setLocalError(null);
+    if (!trimmed) {
+      setLocalError('Skriv inn e-posten din over, så sender vi deg en lenke.');
+      return;
+    }
+    setPendingProvider('reset');
+    try {
+      await sendPasswordReset(trimmed);
+      setNotice(
+        `Vi har sendt en lenke til ${trimmed}. Åpne den på denne telefonen for å velge et nytt passord.`
+      );
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Klarte ikke å sende e-posten. Prøv igjen.');
+    } finally {
+      setPendingProvider(null);
+    }
+  };
+
   const handlePasswordSubmit = async () => {
     if (!email || !password) return;
     setPendingProvider('password');
     setNotice(null);
+    setLocalError(null);
     try {
       if (mode === 'signIn') {
         await signInWithPassword(email, password);
@@ -73,6 +103,7 @@ export default function SignInScreen() {
 
   const pending = pendingProvider !== null;
   const submitDisabled = pending || !email || !password;
+  const errorMessage = signInError ?? localError;
 
   return (
     <ScrollView
@@ -134,19 +165,35 @@ export default function SignInScreen() {
         </Pressable>
       </View>
 
-      {signInError && (
+      {errorMessage && (
         <ThemedText type="small" themeColor="danger" style={styles.message}>
-          {signInError}
+          {errorMessage}
         </ThemedText>
       )}
-      {notice && !signInError && (
+      {notice && !errorMessage && (
         <ThemedText type="small" themeColor="brand" style={styles.message}>
           {notice}
         </ThemedText>
       )}
 
+      {mode === 'signIn' && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleForgotPassword}
+          disabled={pending}
+          hitSlop={Spacing.two}
+          style={[styles.toggle, pending && styles.disabled]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {pendingProvider === 'reset' ? 'Sender lenke…' : 'Glemt passord?'}
+          </ThemedText>
+        </Pressable>
+      )}
+
       <Pressable
-        onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
+        onPress={() => {
+          setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+          setLocalError(null);
+        }}
         hitSlop={Spacing.two}
         style={styles.toggle}>
         <ThemedText type="small" themeColor="textSecondary">

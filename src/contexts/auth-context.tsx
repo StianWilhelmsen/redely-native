@@ -45,6 +45,13 @@ type AuthContextValue = {
     password: string
   ) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  /** Emails a reset link that opens the app's reset-password screen. Throws a readable message. */
+  sendPasswordReset: (email: string) => Promise<void>;
+  /**
+   * Applies the recovery tokens the reset link carried, then sets the new password. The
+   * person is signed in afterwards, exactly as if they had logged in with it.
+   */
+  finishPasswordReset: (recoveryUrl: string, newPassword: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -64,6 +71,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (__DEV__) console.log('[auth] OAuth redirect URI:', redirectTo);
   }, [redirectTo]);
+
+  // Where the "Glemt passord" email sends people: the reset-password route, which reads
+  // the recovery tokens Supabase appends to it. Same scheme logic as the OAuth callback
+  // above, and like it this exact value has to be in Supabase's redirect allow-list.
+  const resetRedirectTo = useMemo(
+    () => AuthSession.makeRedirectUri({ scheme: 'ryddigkollektivnative', path: 'reset-password' }),
+    []
+  );
 
   const [session, setSession] = useState<Session | null>(() => getSessionSnapshot());
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -197,6 +212,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needsEmailConfirmation: !data.session };
   }, []);
 
+  const sendPasswordReset = useCallback(
+    async (email: string) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: resetRedirectTo,
+      });
+      if (error) {
+        throw new LocalizedAuthError(
+          authErrorMessage(error, 'Klarte ikke å sende e-posten. Prøv igjen.')
+        );
+      }
+    },
+    [resetRedirectTo]
+  );
+
+  const finishPasswordReset = useCallback(async (recoveryUrl: string, newPassword: string) => {
+    // Supabase reports a used or expired link the same way it reports a failed OAuth
+    // round trip - as error params on the redirect instead of tokens.
+    const { params } = QueryParams.getQueryParams(recoveryUrl);
+    if (params.error_code || params.error) {
+      throw new LocalizedAuthError(
+        authErrorMessage({ code: params.error_code }, 'Lenken er ugyldig. Be om en ny.')
+      );
+    }
+    if (!params.access_token || !params.refresh_token) {
+      throw new LocalizedAuthError('Lenken er ugyldig. Be om en ny.');
+    }
+    // Two calls, no way to make them one: updateUser() needs a session, and the recovery
+    // session is the only proof this person owns the mailbox. Setting it signs them in,
+    // which is also where they should end up once the password is saved.
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: params.access_token,
+      refresh_token: params.refresh_token,
+    });
+    if (sessionError) {
+      throw new LocalizedAuthError(authErrorMessage(sessionError, 'Lenken er ugyldig. Be om en ny.'));
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      throw new LocalizedAuthError(
+        authErrorMessage(error, 'Klarte ikke å lagre passordet. Prøv igjen.')
+      );
+    }
+  }, []);
+
   const { mutate } = useSWRConfig();
 
   const signOut = useCallback(async () => {
@@ -231,8 +290,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithPassword,
       signUpWithPassword,
       signOut,
+      sendPasswordReset,
+      finishPasswordReset,
     }),
-    [status, user, signInError, signInWithGoogle, signInWithApple, signInWithPassword, signUpWithPassword, signOut]
+    [
+      status,
+      user,
+      signInError,
+      signInWithGoogle,
+      signInWithApple,
+      signInWithPassword,
+      signUpWithPassword,
+      signOut,
+      sendPasswordReset,
+      finishPasswordReset,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

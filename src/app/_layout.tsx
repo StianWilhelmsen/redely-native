@@ -7,13 +7,14 @@ import {
   useFonts,
 } from '@expo-google-fonts/poppins';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { setAudioModeAsync } from 'expo-audio';
 import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { Component, useEffect, useState, type ReactNode } from 'react';
+import { Component, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
-import useSWR, { useSWRConfig } from 'swr';
+import useSWR, { useSWRConfig, type SWRConfiguration } from 'swr';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { OfflineBanner } from '@/components/offline-banner';
@@ -96,14 +97,50 @@ function NavigationTheme({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * How long the launch spinner quietly keeps trying /api/me before admitting defeat.
+ *
+ * The first request after signing in can fail fast for reasons that clear themselves a
+ * second later - supabase-js still swapping tokens, a backend that has not seen this
+ * user's brand-new JWT yet. SWR does retry on its own, but its first retry is scheduled
+ * 5-15 seconds out, and `isValidating` is false while it waits - so the error screen was
+ * painted immediately after every fast failure, and "Prøv igjen" then succeeded at once
+ * because nothing had actually been wrong. These delays replace SWR's backoff for this
+ * one key: roughly fifteen seconds of spinner, then the error screen.
+ */
+const PROFILE_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+
 function RootNavigator() {
   const { status } = useAuth();
+  // True once every delay above has been used up on a single stretch of failures. Only
+  // then is the failure something to show - see profileFailed below.
+  const [profileGaveUp, setProfileGaveUp] = useState(false);
+  const retryProfile = useCallback<NonNullable<SWRConfiguration['onErrorRetry']>>(
+    (error, _key, _config, revalidate, opts) => {
+      // retryCount is 1 on the first retry.
+      const delay = PROFILE_RETRY_DELAYS_MS[opts.retryCount - 1];
+      if (__DEV__) console.warn(`[me] attempt ${opts.retryCount} failed`, error);
+      if (delay === undefined) {
+        setProfileGaveUp(true);
+        return;
+      }
+      setTimeout(() => revalidate(opts), delay);
+    },
+    []
+  );
   const {
     data: me,
     error: meError,
     isValidating: isValidatingMe,
     mutate: mutateMe,
-  } = useSWR(status === 'signedIn' ? 'me' : null, api.me);
+  } = useSWR(status === 'signedIn' ? 'me' : null, api.me, {
+    onErrorRetry: retryProfile,
+    onSuccess: () => setProfileGaveUp(false),
+  });
+  // A fresh sign-in starts the retry budget over.
+  useEffect(() => {
+    if (status !== 'signedIn') setProfileGaveUp(false);
+  }, [status]);
   const { mutate } = useSWRConfig();
   const meId = me?.id;
   const collectiveId = me?.collective?.id;
@@ -204,13 +241,14 @@ function RootNavigator() {
 
   // A failed /api/me is not the same as a slow one, and this screen used to render both
   // as an identical spinner that never resolved - an unreachable backend looked exactly
-  // like the app hanging on launch, with no way out but force-quitting. SWR keeps `data` undefined on a first-load error, so the
-  // error has to be checked explicitly rather than inferred from the absence of data.
-  // `!isValidatingMe` matters: SWR retries a failed fetch on its own, and without it the
-  // very first failure painted the error screen while a retry that would have succeeded
-  // was already in flight. Keep showing the spinner until SWR has actually given up.
-  const profileFailed = status === 'signedIn' && !me && !!meError && !isValidatingMe;
-  const stillResolvingProfile = status === 'signedIn' && !me && (!meError || isValidatingMe);
+  // like the app hanging on launch, with no way out but force-quitting. SWR keeps `data`
+  // undefined on a first-load error, so the error has to be checked explicitly rather
+  // than inferred from the absence of data. `profileGaveUp` is what keeps a single fast
+  // failure off the screen: the spinner stays up through the whole retry ladder above,
+  // and the error only shows once that has run out with nothing to show for it.
+  const profileFailed =
+    status === 'signedIn' && !me && !!meError && !isValidatingMe && profileGaveUp;
+  const stillResolvingProfile = status === 'signedIn' && !me && !profileFailed;
 
   if (profileFailed) {
     return (
@@ -226,7 +264,14 @@ function RootNavigator() {
         <ThemedText type="small" themeColor="textSecondary" style={styles.loadingText}>
           Sjekk at du er på nett og prøv igjen.
         </ThemedText>
-        <PrimaryButton label="Prøv igjen" onPress={() => mutateMe()} loading={isValidatingMe} />
+        <PrimaryButton
+          label="Prøv igjen"
+          onPress={() => {
+            setProfileGaveUp(false);
+            mutateMe();
+          }}
+          loading={isValidatingMe}
+        />
       </ThemedView>
     );
   }
@@ -300,6 +345,9 @@ function RootNavigator() {
         {/* Where a scanned invite QR code lands. Ungated for the same reason: the link
             arrives before the app knows whether its holder is signed in. */}
         <Stack.Screen name="join" />
+        {/* Where the "Glemt passord" email lands. Ungated for the same reason again: the
+            person opening it is, by definition, someone who cannot sign in yet. */}
+        <Stack.Screen name="reset-password" />
       </Stack>
       {status === 'signedIn' && !needsOnboarding && meId && collectiveId ? (
         <>
@@ -319,6 +367,22 @@ export default function RootLayout() {
     Poppins_700Bold,
     Poppins_800ExtraBold,
   });
+
+  // The app's sounds are short UI effects - a ding when a bill is settled, a pop for a
+  // new message. Without this, expo-audio takes the platform defaults, which are meant
+  // for media apps: iOS's session category pauses whatever else is playing the moment a
+  // sound starts, and Android asks for exclusive audio focus. Both stopped someone's
+  // music or podcast for a half-second ding. Mixing lets the effect play on top, and
+  // playsInSilentMode false keeps it obeying the mute switch like a UI sound should.
+  useEffect(() => {
+    setAudioModeAsync({
+      interruptionMode: 'mixWithOthers',
+      playsInSilentMode: false,
+      shouldPlayInBackground: false,
+    }).catch((error) => {
+      console.warn('Could not configure audio mode', error);
+    });
+  }, []);
 
   // Failsafe: never let font loading strand the user on the native splash. If fonts
   // haven't resolved either way within 3s, render anyway with system font fallbacks.

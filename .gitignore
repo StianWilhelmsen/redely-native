@@ -45,3 +45,8 @@ example
 
 # brag video output
 brag-output/
+
+# local AI agent instructions
+AGENTS.md
+CLAUDE.md
+.claude/

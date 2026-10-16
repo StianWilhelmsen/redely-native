@@ -53,7 +53,6 @@
     "until": "Ends",
     "untilNever": "Never",
     "untilDate": "On a date",
-    "lastTime": "Last time",
     "reminder": "Reminder",
     "reminderNone": "None",
     "reminderMinutes": "{{count}} min before",

@@ -203,7 +203,7 @@ function pairs<T>(items: T[]): T[][] {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: 12, paddingVertical: 36 },
-  hand: { fontFamily: FontFamily.hand, fontSize: 20, textAlign: 'center' },
+  hand: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29, textAlign: 'center' },
   body: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center' },
   grid: { gap: 22, paddingTop: 12, paddingHorizontal: 2 },
   gridRow: { flexDirection: 'row', gap: 14 },

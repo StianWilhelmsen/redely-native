@@ -193,13 +193,13 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
   },
   h1: {
-    fontFamily: FontFamily.hand,
+    fontFamily: FontFamily.hand, paddingHorizontal: 3,
     fontSize: 28,
-    lineHeight: 32,
+    lineHeight: 41,
   },
   h2: {
-    fontFamily: FontFamily.hand,
-    fontSize: 22,
+    fontFamily: FontFamily.hand, paddingHorizontal: 3,
+    fontSize: 22, lineHeight: 32,
     marginTop: 10,
   },
   row: {
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   says: {
     fontFamily: FontFamily.hand,
-    fontSize: 19,
+    fontSize: 19, lineHeight: 28,
     textAlign: 'center',
     paddingHorizontal: 16,
   },

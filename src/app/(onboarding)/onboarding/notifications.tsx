@@ -100,7 +100,7 @@ function Example({ delay, icon, when, text }: { delay: number; icon: ReactNode; 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 22 },
   head: { alignItems: 'center', gap: 4, marginTop: 6 },
-  title: { fontFamily: FontFamily.hand, fontSize: 28, lineHeight: 32, textAlign: 'center' },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41, textAlign: 'center' },
   sub: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, textAlign: 'center', maxWidth: 280 },
   list: { gap: 10, marginTop: 8 },
   push: { borderRadius: 18, paddingVertical: 11, paddingHorizontal: 13, flexDirection: 'row', gap: 10, alignItems: 'center', opacity: 0.92 },

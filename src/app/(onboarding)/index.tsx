@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
-  bubbleText: { fontFamily: FontFamily.hand, fontSize: 21, lineHeight: 25 },
+  bubbleText: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 21, lineHeight: 30 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 18, paddingTop: 14 },
   cell: { width: '48%', paddingTop: 9 },
   card: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
-  cardTitle: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 23 },
+  cardTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   cardSub: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
   pin: {
     position: 'absolute',

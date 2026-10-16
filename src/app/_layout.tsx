@@ -267,8 +267,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   waitText: {
-    fontFamily: FontFamily.hand,
-    fontSize: 20,
+    fontFamily: FontFamily.hand, paddingHorizontal: 3,
+    fontSize: 20, lineHeight: 29,
     textAlign: 'center',
   },
   retry: {

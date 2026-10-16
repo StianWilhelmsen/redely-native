@@ -243,11 +243,11 @@ function PlanOption({
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 2, marginTop: -18 },
-  title: { fontFamily: FontFamily.hand, fontSize: 34, lineHeight: 40 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 34, lineHeight: 49 },
   lead: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center', maxWidth: 300, lineHeight: 20 },
   notes: { flexDirection: 'row', gap: 12, alignItems: 'stretch' },
   half: { flex: 1 },
-  noteTitle: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 24 },
+  noteTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   item: { fontFamily: FontFamily.regular, fontSize: 12.5, lineHeight: 17 },
   body: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20 },
   small: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17 },

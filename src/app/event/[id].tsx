@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   magnets: { position: 'absolute', top: -14, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 4 },
   kicker: { fontFamily: FontFamily.extraBold, fontSize: 12, letterSpacing: 0.7 },
-  title: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44 },
   when: { fontFamily: FontFamily.semiBold, fontSize: 14 },
   desc: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, paddingTop: 6 },
   chipRow: { paddingVertical: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },

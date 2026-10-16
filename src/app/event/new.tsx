@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   magnet: { position: 'absolute', top: -14, left: 0, right: 0, alignItems: 'center' },
   kicker: { fontFamily: FontFamily.extraBold, fontSize: 12, letterSpacing: 0.7 },
-  titleInput: { fontFamily: FontFamily.hand, fontSize: 28, paddingVertical: 2, borderBottomWidth: 2 },
+  titleInput: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41, paddingVertical: 2, borderBottomWidth: 2 },
   summary: { fontFamily: FontFamily.regular, fontSize: 13, paddingTop: 6 },
   error: { fontFamily: FontFamily.semiBold, fontSize: 14, paddingHorizontal: 4 },
   line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 54, paddingVertical: 6 },

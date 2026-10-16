@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   screen: { paddingHorizontal: 18, gap: 14 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   kicker: { fontFamily: FontFamily.bold, fontSize: 12.5 },
-  title: { fontFamily: FontFamily.hand, fontSize: 32, lineHeight: 36 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 32, lineHeight: 46 },
   section: { fontFamily: FontFamily.extraBold, fontSize: 11.5, letterSpacing: 0.7, paddingTop: 8, paddingHorizontal: 4 },
   card: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 2 },
   button: { borderRadius: 999, paddingVertical: 15, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },

@@ -441,9 +441,9 @@ function Section({ label, hint, children, last }: { label: string; hint?: string
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, gap: 20 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  centerText: { fontFamily: FontFamily.hand, fontSize: 20, textAlign: 'center' },
+  centerText: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29, textAlign: 'center' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  formTitle: { fontFamily: FontFamily.hand, fontSize: 28 },
+  formTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41 },
   paper: {
     marginTop: 8,
     paddingTop: 26,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   },
   paperMagnet: { position: 'absolute', top: -14, left: 0, right: 0, alignItems: 'center' },
   paperLabel: { fontFamily: FontFamily.extraBold, fontSize: 12, letterSpacing: 0.7 },
-  titleInput: { fontFamily: FontFamily.hand, fontSize: 28, lineHeight: 34, paddingVertical: 2, borderBottomWidth: 2 },
+  titleInput: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41, paddingVertical: 2, borderBottomWidth: 2 },
   paperSub: { fontFamily: FontFamily.regular, fontSize: 13, paddingTop: 6 },
   card: { borderRadius: 16, paddingHorizontal: 14 },
   section: { gap: 8, paddingVertical: 12 },
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   kr: { fontFamily: FontFamily.bold, fontSize: 15 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   box: { width: 20, height: 20, borderRadius: 5, borderWidth: 2 },
-  itemInput: { flex: 1, fontFamily: FontFamily.handRegular, fontSize: 18, paddingVertical: 6 },
+  itemInput: { flex: 1, fontFamily: FontFamily.handRegular, paddingHorizontal: 3, fontSize: 18, lineHeight: 26, paddingVertical: 6 },
   itemRemove: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   bodyInput: { fontFamily: FontFamily.regular, fontSize: 15, minHeight: 60, textAlignVertical: 'top' },
 });

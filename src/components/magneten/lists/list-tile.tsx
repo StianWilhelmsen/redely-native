@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 3 },
   },
-  name: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 23 },
+  name: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   sub: { fontFamily: FontFamily.regular, fontSize: 12 },
   progressRow: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6 },
   track: { flex: 1, height: 5, borderRadius: 3, overflow: 'hidden' },

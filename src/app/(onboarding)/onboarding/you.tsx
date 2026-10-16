@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center' },
   dots: { flex: 1 },
   backSpace: { width: 44 },
-  title: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34, textAlign: 'center', marginTop: 6 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44, textAlign: 'center', marginTop: 6 },
   magnetWrap: { alignItems: 'center', paddingVertical: 6 },
   camera: {
     position: 'absolute',

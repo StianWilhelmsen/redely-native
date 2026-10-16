@@ -1,3 +1,4 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -72,7 +73,11 @@ export default function SignIn() {
     }
   };
 
-  const showApple = Platform.OS === 'ios';
+  // Apple and Google sign-in are tied to the app's own bundle id and URL scheme, so they
+  // cannot work inside Expo Go - only the email code does. Hide them there.
+  const inExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  const showApple = Platform.OS === 'ios' && !inExpoGo;
+  const showGoogle = !inExpoGo;
   const lastName = last?.name || last?.email || null;
 
   return (
@@ -135,21 +140,25 @@ export default function SignIn() {
             onPress={() => run('apple')}
           />
         ) : null}
-        <ProviderButton
-          icon="logo-google"
-          label={t('auth.signIn.google')}
-          loading={busy === 'google'}
-          disabled={!!busy}
-          onPress={() => run('google')}
-        />
+        {showGoogle ? (
+          <ProviderButton
+            icon="logo-google"
+            label={t('auth.signIn.google')}
+            loading={busy === 'google'}
+            disabled={!!busy}
+            onPress={() => run('google')}
+          />
+        ) : null}
       </View>
       <ErrorText>{signInError}</ErrorText>
 
+      {showGoogle ? (
       <View style={styles.divider}>
         <View style={[styles.line, { backgroundColor: tokens.border }]} />
         <Text style={[styles.dividerText, { color: tokens.textSecondary }]}>{t('auth.signIn.orEmail')}</Text>
         <View style={[styles.line, { backgroundColor: tokens.border }]} />
       </View>
+      ) : null}
 
       <Field
         label={t('auth.signIn.emailLabel')}
@@ -258,13 +267,13 @@ const styles = StyleSheet.create({
   createHead: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 4 },
   createText: { flex: 1, paddingBottom: 12 },
   returnHead: { alignItems: 'center', gap: 6, marginTop: 10 },
-  title: { fontFamily: FontFamily.hand, fontSize: 32, lineHeight: 36 },
-  bigTitle: { fontFamily: FontFamily.hand, fontSize: 34, lineHeight: 40, textAlign: 'center' },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 32, lineHeight: 46 },
+  bigTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 34, lineHeight: 49, textAlign: 'center' },
   sub: { fontFamily: FontFamily.regular, fontSize: 14 },
   small: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
   lastCard: { marginTop: 16 },
   lastCardInner: { alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingBottom: 18 },
-  lastName: { fontFamily: FontFamily.hand, fontSize: 22 },
+  lastName: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 22, lineHeight: 32 },
   wide: { alignSelf: 'stretch', borderRadius: 14, marginTop: 2 },
   otherWays: { fontFamily: FontFamily.extraBold, fontSize: 12.5, letterSpacing: 0.8, textAlign: 'center', marginTop: 10 },
   providers: { gap: 10, marginTop: 6 },
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
   line: { flex: 1, height: 1.5 },
   dividerText: { fontFamily: FontFamily.bold, fontSize: 12.5 },
   inviteNote: { marginTop: 8 },
-  noteTitle: { fontFamily: FontFamily.hand, fontSize: 18, lineHeight: 21 },
+  noteTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 18, lineHeight: 26 },
   magneFoot: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
   footText: { flex: 1, paddingBottom: 12 },
   terms: { fontFamily: FontFamily.regular, fontSize: 11.5, lineHeight: 17, textAlign: 'center' },

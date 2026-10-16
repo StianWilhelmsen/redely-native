@@ -176,9 +176,9 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
   title: {
-    fontFamily: FontFamily.hand,
+    fontFamily: FontFamily.hand, paddingHorizontal: 3,
     fontSize: 18.5,
-    lineHeight: 21,
+    lineHeight: 27,
   },
   footer: {
     marginTop: 'auto',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     right: 8,
     bottom: 8,
     fontFamily: FontFamily.hand,
-    fontSize: 19,
+    fontSize: 19, lineHeight: 28,
     borderWidth: 2.5,
     borderRadius: 6,
     paddingHorizontal: 6,

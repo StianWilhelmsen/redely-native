@@ -359,7 +359,7 @@ function AreaRow({ hid, areaId, label }: { hid: string; areaId: string | null; l
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  centerTitle: { fontFamily: FontFamily.hand, fontSize: 24, textAlign: 'center' },
+  centerTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 24, lineHeight: 35, textAlign: 'center' },
   centerSub: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center', marginBottom: 8 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 6 },
   content: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24, gap: 22 },
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   magnet: { position: 'absolute', top: -17, left: 0, right: 0, alignItems: 'center' },
-  title: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44 },
   body: { fontFamily: FontFamily.regular, fontSize: 14.5, lineHeight: 20 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1.5, borderStyle: 'dashed', minHeight: 40 },
   rowLabel: { width: 96, fontFamily: FontFamily.regular, fontSize: 13 },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     right: 14,
     top: 18,
     fontFamily: FontFamily.hand,
-    fontSize: 26,
+    fontSize: 26, lineHeight: 38,
     borderWidth: 3,
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -406,5 +406,5 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontFamily: FontFamily.regular, fontSize: 14, paddingVertical: 12 },
   send: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   stampButton: { borderWidth: 2.5, borderRadius: 8, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
-  stampText: { fontFamily: FontFamily.hand, fontSize: 20 },
+  stampText: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
 });

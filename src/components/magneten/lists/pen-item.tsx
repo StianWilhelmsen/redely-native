@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   word: { flexShrink: 1, flexGrow: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center' },
-  text: { fontFamily: FontFamily.hand, fontSize: 20, maxWidth: '100%' },
+  text: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29, maxWidth: '100%' },
   strike: { position: 'absolute', top: LINE_HEIGHT / 2 - 7, height: 12, overflow: 'hidden' },
   cover: { position: 'absolute', top: 0, bottom: 0, right: -2 },
   qty: { fontFamily: FontFamily.medium, fontSize: 12.5 },

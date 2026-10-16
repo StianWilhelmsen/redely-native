@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   magnet: { position: 'absolute', top: -17, left: 18 },
   kicker: { fontFamily: FontFamily.extraBold, fontSize: 12, letterSpacing: 0.5 },
-  title: { fontFamily: FontFamily.hand, fontSize: 22, lineHeight: 25 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 22, lineHeight: 32 },
   line: { fontFamily: FontFamily.regular, fontSize: 12.5 },
-  time: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34 },
+  time: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44 },
 });

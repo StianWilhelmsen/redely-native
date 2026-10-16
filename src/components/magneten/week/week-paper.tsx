@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   dayCol: { width: 56, minHeight: 44, justifyContent: 'center' },
-  dayName: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 22 },
+  dayName: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   dayDate: { fontFamily: FontFamily.semiBold, fontSize: 11.5 },
   chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', gap: 5 },
   chip: {

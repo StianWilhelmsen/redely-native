@@ -159,11 +159,11 @@ export default function FirstNoteStep() {
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 22 },
   flex: { flex: 1 },
-  title: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34, marginTop: 6 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44, marginTop: 6 },
   sub: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, marginTop: -8 },
   door: { height: 260, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   noteSlot: { width: 190 },
-  empty: { fontFamily: FontFamily.handRegular, fontSize: 20 },
+  empty: { fontFamily: FontFamily.handRegular, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   magne: { position: 'absolute', left: 10, bottom: -6 },
   label: { fontFamily: FontFamily.bold, fontSize: 13, marginTop: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

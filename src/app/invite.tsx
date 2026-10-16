@@ -187,7 +187,7 @@ export default function InviteScreen() {
 }
 
 const styles = StyleSheet.create({
-  hand: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 24, textAlign: 'center' },
+  hand: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29, textAlign: 'center' },
   code: { fontFamily: FontFamily.extraBold, fontSize: 40, letterSpacing: 6, textAlign: 'center' },
   qr: { alignSelf: 'center', padding: 10, backgroundColor: '#FFFFFF', borderRadius: 12 },
   small: { fontFamily: FontFamily.regular, fontSize: 12.5, lineHeight: 18 },

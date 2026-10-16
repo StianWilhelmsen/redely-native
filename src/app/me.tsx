@@ -388,12 +388,12 @@ function Stat({ value, label }: { value: number | string; label: string }) {
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 6 },
-  heroName: { fontFamily: FontFamily.hand, fontSize: 28, lineHeight: 34, marginTop: 4, textAlign: 'center' },
+  heroName: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41, marginTop: 4, textAlign: 'center' },
   heroSub: { fontFamily: FontFamily.regular, fontSize: 13, textAlign: 'center' },
-  noteTitle: { fontFamily: FontFamily.hand, fontSize: 20, lineHeight: 24 },
+  noteTitle: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 20, lineHeight: 29 },
   stats: { flexDirection: 'row', gap: 8 },
   stat: { flex: 1 },
-  statValue: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34 },
+  statValue: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44 },
   statLabel: { fontFamily: FontFamily.regular, fontSize: 12, opacity: 0.75 },
   noteFoot: { fontFamily: FontFamily.regular, fontSize: 12.5, opacity: 0.75 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

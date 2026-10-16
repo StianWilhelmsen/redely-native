@@ -49,5 +49,5 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(13,19,21,0.45)' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 18, paddingTop: 10, gap: 14 },
   grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, marginBottom: 4 },
-  title: { fontFamily: FontFamily.hand, fontSize: 26, lineHeight: 30 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 26, lineHeight: 38 },
 });

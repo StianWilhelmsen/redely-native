@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, gap: 2 },
   meta: { fontFamily: FontFamily.bold, fontSize: 13 },
-  title: { fontFamily: FontFamily.hand, fontSize: 26, lineHeight: 30 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 26, lineHeight: 38 },
   box: { width: 48, height: 48, borderRadius: 12, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   magnet: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
   stamp: {
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     right: 70,
     bottom: 10,
     fontFamily: FontFamily.hand,
-    fontSize: 22,
+    fontSize: 22, lineHeight: 32,
     borderWidth: 2.5,
     borderRadius: 6,
     paddingHorizontal: 6,

@@ -137,7 +137,7 @@ export default function EmailCode() {
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 22 },
   head: { alignItems: 'center', gap: 6 },
-  title: { fontFamily: FontFamily.hand, fontSize: 28, lineHeight: 32, textAlign: 'center' },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 28, lineHeight: 41, textAlign: 'center' },
   sub: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center' },
   center: { textAlign: 'center' },
   boxes: { marginTop: 10 },

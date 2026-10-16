@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   navRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   filters: { gap: 6, paddingRight: 18 },
   center: { alignItems: 'center', gap: 10, paddingVertical: 30 },
-  hand: { fontFamily: FontFamily.hand, fontSize: 19, lineHeight: 24 },
+  hand: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 19, lineHeight: 28 },
   body: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center' },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8, paddingTop: 6 },
   soon: { flexDirection: 'row', alignItems: 'center', gap: 14 },

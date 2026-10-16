@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   noteSlot: { position: 'absolute' },
   magne: { position: 'absolute', left: '50%', bottom: -6, marginLeft: -50 },
   copy: { alignItems: 'center', gap: 8, marginTop: 30 },
-  headline: { fontFamily: FontFamily.hand, fontSize: 34, lineHeight: 38, textAlign: 'center' },
+  headline: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 34, lineHeight: 49, textAlign: 'center' },
   body: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 300 },
   actions: { gap: 6 },
   secondary: { minHeight: 44 },

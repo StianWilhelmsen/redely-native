@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   dots: { flex: 1 },
   backSpace: { width: 44 },
   flex: { flex: 1 },
-  title: { fontFamily: FontFamily.hand, fontSize: 30, lineHeight: 34, marginTop: 6 },
+  title: { fontFamily: FontFamily.hand, paddingHorizontal: 3, fontSize: 30, lineHeight: 44, marginTop: 6 },
   sub: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, marginTop: -8 },
   list: { gap: 10 },
   row: { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },

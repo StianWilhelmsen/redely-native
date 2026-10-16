@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 const KEY = 'provider-profile-name';
+const LAST_KEY = 'magneten:last-sign-in';
 
 /**
  * The name an identity provider handed us at sign-in, kept only until onboarding has
@@ -34,5 +35,47 @@ export async function forgetProviderName() {
     await SecureStore.deleteItemAsync(KEY);
   } catch {
     // Ignore - a stale value is only ever used as a prefill.
+  }
+}
+
+export type SignInMethod = 'apple' | 'google' | 'email';
+
+/**
+ * How this phone last signed in, so "Jeg har allerede en konto" can offer a one-tap
+ * "Fortsett som Ingrid". Only on this device, and only a convenience.
+ */
+export type LastSignIn = { method: SignInMethod; name: string | null; email: string | null };
+
+export async function rememberLastSignIn(next: LastSignIn) {
+  try {
+    const previous = await getLastSignIn();
+    // A later sign-in without a name (Apple only sends it once) keeps the one we had.
+    const name = next.name ?? (previous?.email === next.email ? previous?.name : null) ?? null;
+    await SecureStore.setItemAsync(LAST_KEY, JSON.stringify({ ...next, name }));
+  } catch {
+    // Convenience only.
+  }
+}
+
+/** The name chosen in onboarding is better than whatever the provider had. */
+export async function updateLastSignInName(name: string) {
+  const previous = await getLastSignIn();
+  if (!previous) return;
+  try {
+    await SecureStore.setItemAsync(LAST_KEY, JSON.stringify({ ...previous, name }));
+  } catch {
+    // Convenience only.
+  }
+}
+
+export async function getLastSignIn(): Promise<LastSignIn | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(LAST_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LastSignIn>;
+    if (parsed.method !== 'apple' && parsed.method !== 'google' && parsed.method !== 'email') return null;
+    return { method: parsed.method, name: parsed.name ?? null, email: parsed.email ?? null };
+  } catch {
+    return null;
   }
 }

@@ -1,66 +1,72 @@
 /**
- * Supabase speaks English and speaks it to developers: a mistyped password comes back as
- * "Invalid login credentials", which is what the sign-in screen used to put in front of
- * people. This turns the handful of outcomes a sign-in or sign-up can actually have into
- * plain Norwegian, and everything else into one honest fallback rather than a leaked
- * internal string.
+ * Supabase speaks English and speaks it to developers: a mistyped code comes back as
+ * "Token has expired or is invalid". This turns the handful of outcomes a sign-in can
+ * actually have into a sentence in the app's language (keys under `auth.errors`), and
+ * everything else into one honest fallback rather than a leaked internal string.
  *
  * Matched on `code` first - the stable identifier auth-js has carried since v2.50 - with
  * the message text as a fallback for errors that predate it or come from the network layer
  * rather than the API.
  */
 
-const BY_CODE: Record<string, string> = {
-  invalid_credentials: 'Feil e-post eller passord.',
-  email_not_confirmed:
-    'Du må bekrefte e-posten din først. Åpne lenken vi sendte deg, og prøv igjen.',
-  user_already_exists: 'Det finnes allerede en konto med denne e-posten. Logg inn i stedet.',
-  email_exists: 'Det finnes allerede en konto med denne e-posten. Logg inn i stedet.',
-  weak_password: 'Passordet er for svakt. Bruk minst 6 tegn.',
-  email_address_invalid: 'Sjekk at e-postadressen er riktig skrevet.',
-  validation_failed: 'Sjekk at e-post og passord er fylt ut riktig.',
-  over_request_rate_limit: 'For mange forsøk. Vent litt før du prøver igjen.',
-  over_email_send_rate_limit: 'Vi har sendt deg flere e-poster allerede. Vent litt før du prøver igjen.',
-  signup_disabled: 'Det er ikke mulig å opprette konto akkurat nå.',
-  email_provider_disabled: 'Innlogging med e-post er slått av akkurat nå.',
-  provider_disabled: 'Denne innloggingsmåten er slått av akkurat nå.',
-  user_banned: 'Denne kontoen er sperret.',
-  user_not_found: 'Fant ingen konto med denne e-posten.',
-  session_expired: 'Økten er utløpt. Logg inn på nytt.',
-  otp_expired: 'Lenken er utløpt. Be om en ny.',
-  captcha_failed: 'Klarte ikke å bekrefte at du er et menneske. Prøv igjen.',
-  same_password: 'Det nye passordet må være et annet enn det gamle.',
-  request_timeout: 'Fikk ikke kontakt med serveren. Sjekk nettforbindelsen og prøv igjen.',
+import i18n from '@/i18n';
+
+export type AuthErrorKey =
+  | 'generic'
+  | 'couldNotStart'
+  | 'noAppleToken'
+  | 'wrongCode'
+  | 'emailInvalid'
+  | 'sendFailed'
+  | 'rateLimit'
+  | 'emailRateLimit'
+  | 'signupDisabled'
+  | 'emailDisabled'
+  | 'providerDisabled'
+  | 'banned'
+  | 'sessionExpired'
+  | 'captcha'
+  | 'network';
+
+const BY_CODE: Record<string, AuthErrorKey> = {
+  otp_expired: 'wrongCode',
+  otp_disabled: 'emailDisabled',
+  email_address_invalid: 'emailInvalid',
+  validation_failed: 'emailInvalid',
+  over_request_rate_limit: 'rateLimit',
+  over_email_send_rate_limit: 'emailRateLimit',
+  signup_disabled: 'signupDisabled',
+  email_provider_disabled: 'emailDisabled',
+  provider_disabled: 'providerDisabled',
+  user_banned: 'banned',
+  session_expired: 'sessionExpired',
+  captcha_failed: 'captcha',
+  request_timeout: 'network',
 };
 
 /** Lower-cased fragments of the English messages, for errors that carry no code. */
-const BY_MESSAGE: [fragment: string, norwegian: string][] = [
-  ['invalid login credentials', BY_CODE.invalid_credentials],
-  ['email not confirmed', BY_CODE.email_not_confirmed],
-  ['user already registered', BY_CODE.user_already_exists],
-  ['password should be at least', BY_CODE.weak_password],
-  ['unable to validate email address', BY_CODE.email_address_invalid],
-  ['email rate limit exceeded', BY_CODE.over_email_send_rate_limit],
-  ['signups not allowed', BY_CODE.signup_disabled],
+const BY_MESSAGE: [fragment: string, key: AuthErrorKey][] = [
+  ['token has expired or is invalid', 'wrongCode'],
+  ['unable to validate email address', 'emailInvalid'],
+  ['email rate limit exceeded', 'emailRateLimit'],
+  ['for security purposes, you can only request this', 'emailRateLimit'],
+  ['signups not allowed', 'signupDisabled'],
   // AuthRetryableFetchError and a plain fetch rejection both land here.
-  ['network request failed', BY_CODE.request_timeout],
-  ['failed to fetch', BY_CODE.request_timeout],
-  ['network error', BY_CODE.request_timeout],
+  ['network request failed', 'network'],
+  ['failed to fetch', 'network'],
+  ['network error', 'network'],
 ];
-
-const FALLBACK = 'Innlogging feilet. Prøv igjen.';
 
 /** Thrown where we detect the problem ourselves, with a message already meant to be read. */
 export class LocalizedAuthError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(key: AuthErrorKey) {
+    super(i18n.t(`auth.errors.${key}`));
     this.name = 'LocalizedAuthError';
   }
 }
 
-export function authErrorMessage(error: unknown, fallback = FALLBACK): string {
+export function authErrorKey(error: unknown, fallback: AuthErrorKey = 'generic'): AuthErrorKey {
   if (!error) return fallback;
-  if (error instanceof LocalizedAuthError) return error.message;
 
   const code = (error as { code?: unknown }).code;
   if (typeof code === 'string' && BY_CODE[code]) return BY_CODE[code];
@@ -75,4 +81,9 @@ export function authErrorMessage(error: unknown, fallback = FALLBACK): string {
   // Anything left is Supabase plumbing, which would only confuse - keep it to the log.
   if (__DEV__) console.warn('[auth] untranslated error', code, message);
   return fallback;
+}
+
+export function authErrorMessage(error: unknown, fallback: AuthErrorKey = 'generic'): string {
+  if (error instanceof LocalizedAuthError) return error.message;
+  return i18n.t(`auth.errors.${authErrorKey(error, fallback)}`);
 }

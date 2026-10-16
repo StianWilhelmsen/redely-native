@@ -23,7 +23,7 @@ import {
   type AuthUser,
 } from '@/lib/auth-store';
 import { clearPushToken } from '@/lib/push-notifications';
-import { rememberProviderName } from '@/lib/provider-profile';
+import { rememberLastSignIn, rememberProviderName, type SignInMethod } from '@/lib/provider-profile';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
@@ -36,29 +36,32 @@ type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
+  /** The last Apple/Google failure, already in the app's language. */
   signInError: string | null;
+  clearSignInError: () => void;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
-  signInWithPassword: (email: string, password: string) => Promise<void>;
-  signUpWithPassword: (
-    email: string,
-    password: string
-  ) => Promise<{ needsEmailConfirmation: boolean }>;
-  signOut: () => Promise<void>;
-  /** Emails a reset link that opens the app's reset-password screen. Throws a readable message. */
-  sendPasswordReset: (email: string) => Promise<void>;
   /**
-   * Applies the recovery tokens the reset link carried, then sets the new password. The
-   * person is signed in afterwards, exactly as if they had logged in with it.
+   * Passwordless email: mails a 6-digit code. Signing in and signing up are the same
+   * thing - an unknown address gets an account. Throws a readable message.
    */
-  finishPasswordReset: (recoveryUrl: string, newPassword: string) => Promise<void>;
+  sendEmailCode: (email: string) => Promise<void>;
+  /** Exchanges the code for a session (the person is signed in). Throws a readable message. */
+  verifyEmailCode: (email: string, token: string) => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Remembers how this phone signed in, for the one-tap "Fortsett som …" card. */
+function rememberSession(method: SignInMethod, session: Session | null | undefined, name?: string) {
+  const user = getUser(session ?? null);
+  rememberLastSignIn({ method, name: name || user?.name || null, email: user?.email ?? null }).catch(() => {});
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   // A path is required: matches the callback URL registered with each OAuth provider
-  // (and previously with Auth0) - "ryddigkollektivnative://callback".
+  // - "ryddigkollektivnative://callback".
   const redirectTo = useMemo(
     () => AuthSession.makeRedirectUri({ scheme: 'ryddigkollektivnative', path: 'callback' }),
     []
@@ -71,14 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (__DEV__) console.log('[auth] OAuth redirect URI:', redirectTo);
   }, [redirectTo]);
-
-  // Where the "Glemt passord" email sends people: the reset-password route, which reads
-  // the recovery tokens Supabase appends to it. Same scheme logic as the OAuth callback
-  // above, and like it this exact value has to be in Supabase's redirect allow-list.
-  const resetRedirectTo = useMemo(
-    () => AuthSession.makeRedirectUri({ scheme: 'ryddigkollektivnative', path: 'reset-password' }),
-    []
-  );
 
   const [session, setSession] = useState<Session | null>(() => getSessionSnapshot());
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -95,10 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { params, errorCode } = QueryParams.getQueryParams(url);
     if (errorCode) throw new Error(errorCode);
     const { access_token, refresh_token } = params;
-    if (!access_token || !refresh_token) return;
+    if (!access_token || !refresh_token) return null;
 
-    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
     if (error) throw error;
+    return data.session;
   }, []);
 
   const signInWithOAuth = useCallback(
@@ -109,11 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider,
           options: { redirectTo, skipBrowserRedirect: true },
         });
-        if (error || !data.url) throw error ?? new LocalizedAuthError('Kunne ikke starte innlogging.');
+        if (error || !data.url) throw error ?? new LocalizedAuthError('couldNotStart');
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
         if (result.type === 'success') {
-          await createSessionFromUrl(result.url);
+          const next = await createSessionFromUrl(result.url);
+          if (next) rememberSession(provider, next);
         }
       } catch (err) {
         console.warn(`${provider} sign-in failed`, err);
@@ -151,8 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-      if (!credential.identityToken)
-        throw new LocalizedAuthError('Fikk ingen identitetstoken fra Apple. Prøv igjen.');
+      if (!credential.identityToken) throw new LocalizedAuthError('noAppleToken');
 
       // Only present on the first-ever authorization for this Apple ID - stash it before
       // anything can fail, see src/lib/provider-profile.ts.
@@ -161,11 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .join(' ');
       if (fullName) await rememberProviderName(fullName);
 
-      const { error } = await supabase.auth.signInWithIdToken({
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
       });
       if (error) throw error;
+      rememberSession('apple', data.session, fullName);
 
       // Carry the name onto the Supabase user so later sign-ins - when Apple returns
       // nothing but the user id - still know who this is. refreshSession() re-mints the
@@ -188,73 +185,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [signInWithOAuth]);
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
-    setSignInError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setSignInError(authErrorMessage(error));
-      throw error;
-    }
-  }, []);
-
-  const signUpWithPassword = useCallback(async (email: string, password: string) => {
-    setSignInError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setSignInError(authErrorMessage(error, 'Klarte ikke å opprette kontoen. Prøv igjen.'));
-      throw error;
-    }
-    // With email confirmation enabled (Supabase's default), signUp succeeds and sends a
-    // mail but returns no session - so nothing observable happens: no error, no sign-in,
-    // the button just spins and stops. The caller has to say "check your inbox", which it
-    // can only do if it's told. Returning the flag rather than reading the project setting
-    // keeps this correct whichever way confirmation is configured.
-    return { needsEmailConfirmation: !data.session };
-  }, []);
-
-  const sendPasswordReset = useCallback(
-    async (email: string) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: resetRedirectTo,
-      });
-      if (error) {
-        throw new LocalizedAuthError(
-          authErrorMessage(error, 'Klarte ikke å sende e-posten. Prøv igjen.')
-        );
-      }
-    },
-    [resetRedirectTo]
-  );
-
-  const finishPasswordReset = useCallback(async (recoveryUrl: string, newPassword: string) => {
-    // Supabase reports a used or expired link the same way it reports a failed OAuth
-    // round trip - as error params on the redirect instead of tokens.
-    const { params } = QueryParams.getQueryParams(recoveryUrl);
-    if (params.error_code || params.error) {
-      throw new LocalizedAuthError(
-        authErrorMessage({ code: params.error_code }, 'Lenken er ugyldig. Be om en ny.')
-      );
-    }
-    if (!params.access_token || !params.refresh_token) {
-      throw new LocalizedAuthError('Lenken er ugyldig. Be om en ny.');
-    }
-    // Two calls, no way to make them one: updateUser() needs a session, and the recovery
-    // session is the only proof this person owns the mailbox. Setting it signs them in,
-    // which is also where they should end up once the password is saved.
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: params.access_token,
-      refresh_token: params.refresh_token,
+  const sendEmailCode = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: true },
     });
-    if (sessionError) {
-      throw new LocalizedAuthError(authErrorMessage(sessionError, 'Lenken er ugyldig. Be om en ny.'));
-    }
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      throw new LocalizedAuthError(
-        authErrorMessage(error, 'Klarte ikke å lagre passordet. Prøv igjen.')
-      );
+      console.warn('email code request failed', error);
+      throw new Error(authErrorMessage(error, 'sendFailed'));
     }
   }, []);
+
+  const verifyEmailCode = useCallback(async (email: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token, type: 'email' });
+    if (error) throw new Error(authErrorMessage(error, 'wrongCode'));
+    rememberSession('email', data.session);
+  }, []);
+
+  const clearSignInError = useCallback(() => setSignInError(null), []);
 
   const { mutate } = useSWRConfig();
 
@@ -262,8 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Releasing the device's push token has to go first, because the request needs a
     // session that still works. But it goes over the network, and awaiting that outright
     // left the button doing nothing for as long as the request took to give up - which
-    // reads as broken, so people press it again. Two seconds, then sign out regardless: a stale token is corrected the next time anyone signs in on
-    // this device (see UserController#registerPushToken).
+    // reads as broken, so people press it again. Two seconds, then sign out regardless: a
+    // stale token is corrected the next time anyone signs in on this device.
     await Promise.race([
       clearPushToken(),
       new Promise((resolve) => setTimeout(resolve, 2000)),
@@ -271,8 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearSession();
     // Purge the SWR cache: without this, the next account to sign in on this device is
     // served the previous account's cached data ('me' included) while revalidation is
-    // in flight - which both flashes someone else's household on screen and made the
-    // push-token sync fire with a stale user id before the new profile existed.
+    // in flight.
     await mutate(() => true, undefined, { revalidate: false });
   }, [mutate]);
 
@@ -285,25 +232,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       signInError,
+      clearSignInError,
       signInWithGoogle,
       signInWithApple,
-      signInWithPassword,
-      signUpWithPassword,
+      sendEmailCode,
+      verifyEmailCode,
       signOut,
-      sendPasswordReset,
-      finishPasswordReset,
     }),
     [
       status,
       user,
       signInError,
+      clearSignInError,
       signInWithGoogle,
       signInWithApple,
-      signInWithPassword,
-      signUpWithPassword,
+      sendEmailCode,
+      verifyEmailCode,
       signOut,
-      sendPasswordReset,
-      finishPasswordReset,
     ]
   );
 

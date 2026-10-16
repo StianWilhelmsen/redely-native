@@ -1,40 +1,39 @@
-import * as Linking from 'expo-linking';
-
 /**
- * Invite codes are stored bare on the backend (5 characters from an alphabet that omits
- * easily-confused glyphs, see InviteService) but always shown with a short prefix, as
- * "RYD-K7M2P". The prefix is presentation only: it makes a code recognisable when it is
- * pasted into a group chat among other text, and gives the eye a place to start.
+ * Invite codes are 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no easily
+ * confused glyphs), case-insensitive on input, valid 7 days (docs/API.md › Invites).
  *
- * Because it is decoration, entry has to accept a code typed either way round.
+ * What people share is a link, https://magneten.app/bli-med/<CODE>; the app opens it at
+ * `join/[code]`. Entry accepts either the bare code or a pasted link.
  */
-const PREFIX = 'RYD';
 
-export const INVITE_CODE_LENGTH = 5;
+export const INVITE_CODE_LENGTH = 6;
 
+export const INVITE_LINK_BASE = 'https://magneten.app/bli-med/';
+
+const ALPHABET = /[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g;
+
+/** For display: the bare code, upper-cased. */
 export function formatInviteCode(code: string): string {
-  return `${PREFIX}-${code}`;
+  return code.toUpperCase();
 }
 
 /**
- * Turns anything a keyboard or a paste can produce into the bare code the API expects.
- * The prefix is only stripped when what remains could still be a whole code - the code
- * alphabet contains R, Y and D, so "RYDXX" is a legitimate code in its own right.
+ * Turns anything a keyboard or a paste can produce into the bare code the API expects:
+ * a link is cut down to the part after `/bli-med/` (or `/join/`), then everything outside
+ * the code alphabet is dropped.
  */
 export function normalizeInviteCode(raw: string): string {
-  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const bare =
-    cleaned.startsWith(PREFIX) && cleaned.length > INVITE_CODE_LENGTH
-      ? cleaned.slice(PREFIX.length)
-      : cleaned;
-  return bare.slice(0, INVITE_CODE_LENGTH);
+  const trimmed = raw.trim();
+  const fromLink = trimmed.match(/(?:bli-med|join)\/([A-Za-z0-9-]+)/);
+  const source = fromLink ? fromLink[1] : trimmed;
+  return source.toUpperCase().replace(ALPHABET, '').slice(0, INVITE_CODE_LENGTH);
 }
 
-/**
- * What the QR code carries: a link that opens the app straight at the join screen, so a
- * phone camera does the typing. In a dev client this resolves to an exp:// URL and in a
- * store build to the app's own scheme - expo-linking works out which.
- */
+export function isCompleteInviteCode(code: string): boolean {
+  return normalizeInviteCode(code).length === INVITE_CODE_LENGTH;
+}
+
+/** The link that goes into the share sheet and the QR code. */
 export function inviteLink(code: string): string {
-  return Linking.createURL('join', { queryParams: { code } });
+  return `${INVITE_LINK_BASE}${formatInviteCode(code)}`;
 }

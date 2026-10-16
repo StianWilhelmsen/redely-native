@@ -21,6 +21,7 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { FontFamily } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { restoreLanguageSetting } from '@/i18n';
+import { takePendingInviteCode } from '@/lib/pending-invite';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 import { ensurePurchasesConfigured } from '@/lib/purchases';
 import { HouseholdProvider, useMeState } from '@/state/household';
@@ -111,8 +112,16 @@ function Waiting({ error, onRetry }: { error?: unknown; onRetry?: () => void }) 
   );
 }
 
-/** Everything that needs a signed-in user: push token, notification taps. */
-function SignedInEffects() {
+/** Everything that needs a signed-in user: push token, notification taps, invite links. */
+function SignedInEffects({ onDoor }: { onDoor: boolean }) {
+  // An invite link opened while signed out is parked until sign-in. Someone without a
+  // household picks it up in onboarding; someone who already has one is sent to join here.
+  useEffect(() => {
+    if (!onDoor) return;
+    const code = takePendingInviteCode();
+    if (code) router.push({ pathname: '/join/[code]', params: { code } });
+  }, [onDoor]);
+
   useEffect(() => {
     const sync = () => syncPushTokenIfGranted().catch((e) => console.warn('Could not sync push token', e));
     sync();
@@ -152,7 +161,7 @@ function SignedInNavigator() {
 
   return (
     <>
-      <SignedInEffects />
+      <SignedInEffects onDoor={!inOnboarding} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={inOnboarding}>
           <Stack.Screen name="(onboarding)" />

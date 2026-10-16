@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Redely",
+    "name": "Magneten",
     "slug": "redely",
     "version": "1.1.2",
     "orientation": "portrait",
@@ -50,8 +50,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Redely trenger tilgang til bildene dine for å sette profilbilde og sende bilder i chatten.",
-          "cameraPermission": "Redely trenger tilgang til kameraet for å ta bilder du sender i chatten."
+          "photosPermission": "Magneten bruker bildene dine til profilbildet på fotomagneten din.",
+          "cameraPermission": "Magneten bruker kameraet til å ta profilbilde til fotomagneten din."
         }
       ],
       "expo-audio",

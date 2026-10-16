@@ -185,6 +185,17 @@ export default function SignIn() {
         style={styles.square}
       />
       <ErrorText>{emailError}</ErrorText>
+      {/* A code already sent stays valid for an hour; Supabase refuses to send another for a
+          while, so this must never be a dead end. */}
+      <Button
+        variant="ghost"
+        label={t('auth.signIn.haveCode')}
+        onPress={() => {
+          const trimmed = email.trim();
+          if (!EMAIL.test(trimmed)) return setEmailError(t('auth.errors.emailInvalid'));
+          router.push({ pathname: '/code', params: { email: trimmed } });
+        }}
+      />
 
       {returning ? null : (
         <PinNote paper="yellow" tilt={-1} redPin style={styles.inviteNote}>

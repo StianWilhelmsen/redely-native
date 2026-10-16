@@ -46,7 +46,7 @@ export function Sheet({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(13,19,21,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(13,19,21,0.45)' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 18, paddingTop: 10, gap: 14 },
   grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, marginBottom: 4 },
   title: { fontFamily: FontFamily.hand, fontSize: 26, lineHeight: 30 },

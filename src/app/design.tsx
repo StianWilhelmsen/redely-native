@@ -62,7 +62,7 @@ export default function DesignScreen() {
     setNewest(ALL_NOTES[count].key);
     setCount(count + 1);
     const land = Durations.smack * 0.55;
-    shake.value = withDelay(
+    shake.set(withDelay(
       land,
       withSequence(
         withTiming(1.5, { duration: 45 }),
@@ -70,7 +70,7 @@ export default function DesignScreen() {
         withTiming(1, { duration: 45 }),
         withTiming(0, { duration: 60 })
       )
-    );
+    ));
   };
 
   const notes = ALL_NOTES.slice(0, count);

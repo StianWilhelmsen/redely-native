@@ -55,22 +55,26 @@ export default function ListScreen() {
   const doneCount = items.filter((i) => i.done).length;
 
   // Lines that appear after the first load - ours or someone else's - write themselves in.
-  const known = useRef<Set<string> | null>(null);
-  const fresh = useMemo(() => {
+  // Tracked by adjusting state during render (React's pattern for "derive from a change"),
+  // so nothing reads a ref while rendering.
+  const [rows, setRows] = useState<{ data: typeof data; known: Set<string> | null; fresh: Set<string> }>({
+    data: undefined,
+    known: null,
+    fresh: new Set(),
+  });
+  if (data && rows.data !== data) {
     const keysNow = items.map((i) => actions.rowKey(i.id));
-    if (!data) return new Set<string>();
-    if (!known.current) {
-      known.current = new Set(keysNow);
-      return new Set<string>();
+    if (!rows.known) {
+      setRows({ data, known: new Set(keysNow), fresh: rows.fresh });
+    } else {
+      const added = keysNow.filter((k) => !rows.known!.has(k));
+      setRows({
+        data,
+        known: added.length ? new Set([...rows.known, ...added]) : rows.known,
+        fresh: added.length ? new Set([...rows.fresh, ...added]) : rows.fresh,
+      });
     }
-    const added = keysNow.filter((k) => !known.current!.has(k));
-    added.forEach((k) => known.current!.add(k));
-    return new Set(added);
-    // rowKey reads a ref; recomputing per items change is what we want.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, data]);
-  const freshSeen = useRef(new Set<string>());
-  fresh.forEach((k) => freshSeen.current.add(k));
+  }
 
   // The counter pops each time it changes.
   const pop = useSharedValue(1);
@@ -78,7 +82,7 @@ export default function ListScreen() {
   useEffect(() => {
     if (!data) return;
     if (lastDone.current !== null && lastDone.current !== doneCount && !reduceMotion) {
-      pop.value = withSequence(withTiming(1.35, { duration: 120 }), withTiming(1, { duration: 180 }));
+      pop.set(withSequence(withTiming(1.35, { duration: 120 }), withTiming(1, { duration: 180 })));
     }
     lastDone.current = doneCount;
   }, [doneCount, data, reduceMotion, pop]);
@@ -133,7 +137,7 @@ export default function ListScreen() {
     tearing.current = true;
     setPhase('tearing');
     const request = actions.clearDone();
-    tear.value = withTiming(1, { duration: reduceMotion ? 0 : Durations.tear, easing: Easing.bezier(0.5, 0, 0.75, 0) });
+    tear.set(withTiming(1, { duration: reduceMotion ? 0 : Durations.tear, easing: Easing.bezier(0.5, 0, 0.75, 0) }));
     try {
       const [count] = await Promise.all([
         request,
@@ -146,14 +150,14 @@ export default function ListScreen() {
       Feel.cheer();
     } catch (e) {
       tearing.current = false;
-      tear.value = 0;
+      tear.set(0);
       setPhase('note');
       Alert.alert(errorMessage(e));
     }
   };
 
   const backToNote = () => {
-    tear.value = 0;
+    tear.set(0);
     setPhase('note');
   };
 
@@ -228,7 +232,7 @@ export default function ListScreen() {
                   quantity={item.quantity}
                   done={item.done}
                   color={adder?.color ?? tokens.border}
-                  fresh={freshSeen.current.has(key)}
+                  fresh={rows.fresh.has(key)}
                   onPress={() => actions.toggle(item)}
                   onLongPress={item.id.startsWith('tmp-') ? undefined : () => setEditing(item)}
                   a11yHint={
@@ -271,6 +275,7 @@ export default function ListScreen() {
       )}
 
       <ItemSheet
+        key={editing?.id ?? 'closed'}
         item={editing}
         onClose={() => setEditing(null)}
         onSave={(input) => {
@@ -285,6 +290,7 @@ export default function ListScreen() {
 
       {canManage ? (
         <ListSettingsSheet
+          key={settings ? 'open' : 'closed'}
           visible={settings}
           name={list.name}
           store={list.storeName}
@@ -336,15 +342,10 @@ function ItemSheet({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const [text, setText] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [category, setCategory] = useState('');
-  useEffect(() => {
-    if (!item) return;
-    setText(item.text);
-    setQuantity(item.quantity ?? '');
-    setCategory(item.category ?? '');
-  }, [item]);
+  // The parent remounts this sheet per item (key), so the form starts from the item.
+  const [text, setText] = useState(item?.text ?? '');
+  const [quantity, setQuantity] = useState(item?.quantity ?? '');
+  const [category, setCategory] = useState(item?.category ?? '');
 
   return (
     <Sheet visible={!!item} onClose={onClose} title={t('lists.item.title')}>
@@ -398,11 +399,6 @@ function ListSettingsSheet({
   const [name, setName] = useState(initialName);
   const [store, setStore] = useState(initialStore ?? '');
   const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    if (!visible) return;
-    setName(initialName);
-    setStore(initialStore ?? '');
-  }, [visible, initialName, initialStore]);
 
   return (
     <Sheet visible={visible} onClose={onClose} title={t('lists.settings.title')}>

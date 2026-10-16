@@ -28,6 +28,13 @@ const THIS_YEAR = new Date().getFullYear();
  * Step 3: the people you live with. Adults are only named here (they get the invitation
  * in step 4); children become profiles without a login. "Neste" creates the household.
  */
+/** Local keys for people not yet saved to the server. */
+let nextKey = 0;
+function newKey() {
+  nextKey += 1;
+  return `p${nextKey}`;
+}
+
 export default function FamilyStep() {
   const { t } = useTranslation();
   const { tokens } = usePalette();
@@ -67,7 +74,7 @@ export default function FamilyStep() {
       birthYear = year;
     }
     const color = nextFreeColor([draft.color, ...people.map((p) => p.color)]);
-    save([...people, { key: `${Date.now()}`, name, role: adding!, birthYear, color }]);
+    save([...people, { key: newKey(), name, role: adding!, birthYear, color }]);
     setAdding(null);
   };
 

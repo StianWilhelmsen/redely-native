@@ -7,7 +7,7 @@ import {
   RethinkSans_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/rethink-sans';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';

@@ -143,5 +143,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   digit: { fontFamily: FontFamily.extraBold, fontSize: 26 },
-  hidden: { ...StyleSheet.absoluteFillObject, opacity: 0.02, color: 'transparent', fontSize: 1 },
+  hidden: { ...StyleSheet.absoluteFill, opacity: 0.02, color: 'transparent', fontSize: 1 },
 });

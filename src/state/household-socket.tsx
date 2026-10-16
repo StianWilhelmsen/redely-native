@@ -13,7 +13,7 @@
  */
 
 import { Client } from '@stomp/stompjs';
-import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useEffectEvent, useRef, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
 
 import type { HouseholdEvent, HouseholdEventType, Uuid } from '@/api';
@@ -124,7 +124,6 @@ export function HouseholdSocketProvider({ children }: { children: ReactNode }) {
 /** Run `handler` whenever an event of this type arrives for the current household. */
 export function useHouseholdEvent(type: HouseholdEventType, handler: Listener) {
   const ctx = useContext(SocketContext);
-  const ref = useRef(handler);
-  ref.current = handler;
-  useEffect(() => ctx?.on(type, (e) => ref.current(e)), [ctx, type]);
+  const onEvent = useEffectEvent(handler);
+  useEffect(() => ctx?.on(type, (e) => onEvent(e)), [ctx, type]);
 }

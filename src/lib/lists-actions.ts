@@ -4,7 +4,7 @@
  * the server's answer replaces the item, and a failure rolls back just that item.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import { useSWRConfig } from 'swr';
 
@@ -16,7 +16,7 @@ export function useListActions(hid: Uuid, listId: Uuid, myMemberId: Uuid | null)
   const { mutate } = useSWRConfig();
   const key = keys.list(hid, listId);
   /** Temporary id → server id, so a row keeps its React key when its add is confirmed. */
-  const aliases = useRef(new Map<Uuid, Uuid>());
+  const [aliases, setAliases] = useState(() => new Map<Uuid, Uuid>());
 
   const update = useCallback(
     (fn: (items: ListItem[]) => ListItem[]) =>
@@ -72,7 +72,7 @@ export function useListActions(hid: Uuid, listId: Uuid, myMemberId: Uuid | null)
     update((items) => [...items, temp]);
     try {
       const created = await api.lists.addItem(hid, listId, { text });
-      aliases.current.set(created.id, tmpId);
+      setAliases((prev) => new Map(prev).set(created.id, tmpId));
       // A realtime refetch may already have brought the real item in.
       update((items) =>
         items.some((i) => i.id === created.id) ? items.filter((i) => i.id !== tmpId) : items.map((i) => (i.id === tmpId ? created : i))
@@ -107,7 +107,7 @@ export function useListActions(hid: Uuid, listId: Uuid, myMemberId: Uuid | null)
   };
 
   /** Stable React key for a row, surviving the temporary → server id swap. */
-  const rowKey = (id: Uuid) => aliases.current.get(id) ?? id;
+  const rowKey = (id: Uuid) => aliases.get(id) ?? id;
 
   return { toggle, patch, add, remove, clearDone, dropDone, rowKey };
 }

@@ -31,7 +31,7 @@ export default function WeekScreen() {
   const today = osloToday();
   const mon = addDays(mondayOf(today), offset * 7);
   const sun = addDays(mon, 6);
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(mon, i)), [mon]);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
   const week = isoWeek(mon);
 
   const events = useSWR(keys.events(hid, mon, sun), () => api.events.range(hid, mon, sun), { keepPreviousData: true });

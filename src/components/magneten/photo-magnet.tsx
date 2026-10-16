@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-30deg' }],
   },
   lip: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderColor: 'rgba(0,0,0,0.22)',
   },
 });

@@ -39,7 +39,6 @@ export default function FirstNoteStep() {
   // Magne shouts "smack" with the note, then settles into a cheer.
   useEffect(() => {
     if (!placed) return;
-    setCheer(false);
     const timer = setTimeout(() => setCheer(true), 700);
     return () => clearTimeout(timer);
   }, [placed]);
@@ -50,6 +49,7 @@ export default function FirstNoteStep() {
     setRun(nextRun);
     setError(null);
     // On the door at once; the request catches up.
+    setCheer(false);
     setPlaced({ title: title.trim(), when, paper, run: nextRun });
     try {
       await api.notes.create(hid, { title: title.trim(), paper, ...extra });

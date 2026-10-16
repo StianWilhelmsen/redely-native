@@ -1,1 +1,164 @@
-{}
+{
+  "kicker_one": "{{count}} list on the door",
+  "kicker_other": "{{count}} lists on the door",
+  "title": "Lists",
+  "new": "New list",
+  "templatesLabel": "Start from a template",
+  "templateA11y": "Create a list from the {{name}} template",
+  "empty": "No lists on the door yet.",
+  "emptyCta": "Start the shopping list",
+  "defaultShoppingName": "Shopping list",
+  "loading": "Fetching the lists …",
+  "tile": {
+    "shopping": "Shopping list",
+    "left_one": "{{count}} left",
+    "left_other": "{{count}} left",
+    "allDone": "All ticked off",
+    "emptyList": "Empty list",
+    "progress": "{{name}}, {{done}} of {{total}} ticked off"
+  },
+  "create": {
+    "title": "New list",
+    "name": "Name",
+    "namePlaceholder": "Cabin packing list",
+    "kindShopping": "Shopping list",
+    "kindChecklist": "Checklist",
+    "store": "Store (optional)",
+    "storePlaceholder": "Tesco",
+    "submit": "Pin it to the door",
+    "nameRequired": "Give the list a name."
+  },
+  "templates": {
+    "cabin": {
+      "name": "Cabin trip",
+      "items": [
+        "Bed linen and towels",
+        "Thermals",
+        "Rain gear",
+        "Slippers",
+        "Matches and firelighters",
+        "Food for the first evening",
+        "Coffee",
+        "Toilet paper",
+        "Torch",
+        "Chargers",
+        "Cards and board games",
+        "Bin bags",
+        "Turn off water and power before leaving"
+      ]
+    },
+    "school": {
+      "name": "Back to school",
+      "items": [
+        "School bag",
+        "Pencil case with pencils and a rubber",
+        "PE kit and trainers",
+        "Lunch box and water bottle",
+        "Indoor shoes",
+        "Rain gear and wellies",
+        "Name labels in clothes and shoes",
+        "Book covers",
+        "Check the after-school club place",
+        "Put parents' evening in the calendar"
+      ]
+    },
+    "may17": {
+      "name": "17 May",
+      "items": [
+        "Iron the bunad or best clothes",
+        "Flags and bunting",
+        "Ribbon for the jacket",
+        "Cash for ice cream and hot dogs",
+        "Breakfast: rolls, eggs and salmon",
+        "A cake for later",
+        "Check when the children's parade starts",
+        "Plasters and sun cream",
+        "Charge the phone for photos"
+      ]
+    },
+    "winterTyres": {
+      "name": "Winter tyres",
+      "items": [
+        "Book a time at the garage",
+        "Check tread depth (at least 3 mm)",
+        "Get the tyres and rims out",
+        "Wheel wrench and jack",
+        "Check the tyre pressure",
+        "Re-tighten the wheel nuts after 50–100 km",
+        "Winter screen wash",
+        "Ice scraper and brush in the car"
+      ]
+    },
+    "kidsParty": {
+      "name": "Kids' party",
+      "items": [
+        "Send the invitations",
+        "Ask about allergies",
+        "Cake and candles",
+        "Hot dogs and buns",
+        "Squash and cups",
+        "Balloons and decorations",
+        "Games and activities",
+        "Prizes",
+        "Party bags",
+        "Tidy up afterwards"
+      ]
+    }
+  },
+  "list": {
+    "kickerShopping": "Shopping list",
+    "kickerChecklist": "Checklist",
+    "countOf": "{{done}} of {{total}}",
+    "sortedFor": "Sorted for {{store}}",
+    "shopMode": "Store mode",
+    "addPlaceholderShopping": "Add an item …",
+    "addPlaceholderChecklist": "Add something to remember …",
+    "add": "Add",
+    "finishShopping": "Done shopping",
+    "finishChecklist": "Tear off what's done",
+    "tornShopping": "Shopped! The list is torn off.",
+    "tornChecklist": "Done! The ticked ones are torn off.",
+    "tornSub_one": "{{count}} thing taken off the list.",
+    "tornSub_other": "{{count}} things taken off the list.",
+    "backToList": "Back to the list",
+    "empty": "The list is empty. Write the first thing at the bottom.",
+    "nothingDone": "Tick something off first.",
+    "share": "Share the list",
+    "more": "More about the list",
+    "tick": "Tick off {{item}}",
+    "itemHint": "Long-press to edit",
+    "addedBy": "Added by {{name}}",
+    "notFound": "Couldn't find that list. Maybe it was deleted?"
+  },
+  "item": {
+    "title": "Edit",
+    "text": "What",
+    "quantity": "Quantity",
+    "quantityPlaceholder": "2 l",
+    "category": "Category",
+    "categoryPlaceholder": "Dairy",
+    "delete": "Remove from the list"
+  },
+  "settings": {
+    "title": "The list",
+    "name": "Name",
+    "store": "Store",
+    "delete": "Delete the list",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteBody": "Everything on it disappears for everyone."
+  },
+  "shop": {
+    "left_one": "{{count}} item left",
+    "left_other": "{{count}} items left",
+    "allFound": "Got it all!",
+    "other": "Other",
+    "basket": "In the basket",
+    "basketEmpty": "Tap an item once it's in your basket.",
+    "allInBasket": "Everything's in the basket!",
+    "finish": "Done shopping",
+    "put": "Put {{item}} in the basket",
+    "takeOut": "Take {{item}} out of the basket",
+    "progress": "{{done}} of {{total}} in the basket",
+    "empty": "Nothing to buy. Enjoy your day!"
+  }
+}

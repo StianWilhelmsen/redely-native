@@ -3,11 +3,11 @@
  * collective-socket.tsx wraps stompjs: the SDK's specifics (configure-once, error codes,
  * identity sync) live in exactly this one file, everything else calls a small clean API.
  *
- * Identity: RevenueCat's appUserID is set to the *collective's* id, not the signed-in
- * user's - one subscription covers the whole collective (see SubscriptionService on the
- * backend), and RevenueCatWebhookController parses the webhook's app_user_id straight back
- * into a collective id. Configuring this wrong silently attributes purchases to the wrong
- * collective, so PurchasesSync below is the only place logIn() is ever called.
+ * Identity: RevenueCat's appUserID is the *household's* UUID, not the signed-in user's -
+ * one Pluss covers the whole household, and the backend's webhook reads app_user_id
+ * straight back as a household id. Configuring this wrong silently attributes purchases
+ * to the wrong household, so HouseholdProvider is the only place that calls
+ * syncPurchasesIdentity.
  */
 import type {
   CustomerInfo,
@@ -71,12 +71,12 @@ export function ensurePurchasesConfigured() {
   configured = true;
 }
 
-/** Switches RevenueCat's active subscriber to this collective. Safe to call repeatedly
+/** Switches RevenueCat's active subscriber to this household. Safe to call repeatedly
  *  with the same id - RevenueCat no-ops a logIn to the id that's already active. */
-export async function syncPurchasesIdentity(collectiveId: number) {
+export async function syncPurchasesIdentity(householdId: string) {
   const purchases = loadPurchases();
   if (!configured || !purchases) return;
-  await purchases.default.logIn(String(collectiveId));
+  await purchases.default.logIn(householdId);
 }
 
 function isCancelled(err: unknown, purchases: PurchasesModule): boolean {
@@ -95,14 +95,14 @@ async function fetchProduct(
   const products = await purchases.default.getProducts([productId]);
   const product = products[0];
   if (!product) {
-    throw new Error(`Fant ikke produktet "${productId}" - er det godkjent i App Store Connect ennå?`);
+    throw new Error(`Product "${productId}" not found - is it approved in App Store Connect?`);
   }
   return product;
 }
 
 /** Buys a plan by its App Store Connect / RevenueCat product id. Resolves once the
  *  purchase has gone through and RevenueCat has updated CustomerInfo; the actual grant
- *  (raising the collective's member limit) happens server-side via the RevenueCat
+ *  (Pluss for the household) happens server-side via the RevenueCat
  *  webhook, not here - callers should refetch billing status after this resolves rather
  *  than assume this promise settling means access changed instantly. */
 export async function purchasePlan(productId: string): Promise<CustomerInfo> {

@@ -1,7 +1,7 @@
 /**
  * Norwegian (bokmål) and English, from the first line of the new app.
  *
- * Every user-facing string lives in `locales/*.json` - never inline in a component. The
+ * Every user-facing string lives in `locales/{nb,en}/*.json` - never inline in a component. The
  * Norwegian file is the source of truth; English is written by hand, not machine
  * translated, because Magne's voice is part of the brand.
  *
@@ -13,8 +13,44 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createInstance } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-import en from './locales/en.json';
-import nb from './locales/nb.json';
+import enAuth from './locales/en/auth.json';
+import enCommon from './locales/en/common.json';
+import enDoor from './locales/en/door.json';
+import enFamily from './locales/en/family.json';
+import enLists from './locales/en/lists.json';
+import enOnboarding from './locales/en/onboarding.json';
+import enWeek from './locales/en/week.json';
+import nbAuth from './locales/nb/auth.json';
+import nbCommon from './locales/nb/common.json';
+import nbDoor from './locales/nb/door.json';
+import nbFamily from './locales/nb/family.json';
+import nbLists from './locales/nb/lists.json';
+import nbOnboarding from './locales/nb/onboarding.json';
+import nbWeek from './locales/nb/week.json';
+
+/**
+ * One file per screen group so several people can work at once without touching the
+ * same file. `common.json` sits at the root (`t('actions.save')`); every other file is
+ * mounted under its own name (`t('door.title')`, `t('lists.shopping.add')`).
+ */
+const nb = {
+  ...nbCommon,
+  auth: nbAuth,
+  onboarding: nbOnboarding,
+  door: nbDoor,
+  week: nbWeek,
+  lists: nbLists,
+  family: nbFamily,
+};
+const en = {
+  ...enCommon,
+  auth: enAuth,
+  onboarding: enOnboarding,
+  door: enDoor,
+  week: enWeek,
+  lists: enLists,
+  family: enFamily,
+};
 
 export type AppLanguage = 'nb' | 'en';
 export type LanguageSetting = AppLanguage | 'system';

@@ -8,38 +8,31 @@ import {
   useFonts,
 } from '@expo-google-fonts/rethink-sans';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { setAudioModeAsync } from 'expo-audio';
-import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { Component, useCallback, useEffect, useState, type ReactNode } from 'react';
-import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
-import useSWR, { useSWRConfig, type SWRConfiguration } from 'swr';
+import { Component, useEffect, useState, type ReactNode } from 'react';
+import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { errorMessage } from '@/api';
+import { Magne } from '@/components/magneten/magne';
 import { OfflineBanner } from '@/components/offline-banner';
-import { PrimaryButton } from '@/components/primary-button';
-import { RefreshSpinner } from '@/components/refresh-spinner';
-import { SubscriptionWelcomeGate } from '@/components/subscription/subscription-welcome-gate';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
+import { FontFamily } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { restoreLanguageSetting } from '@/i18n';
-import { api } from '@/lib/api';
-import { CollectiveSocketProvider, useCollectiveEvent } from '@/lib/collective-socket';
-import { clearPendingInviteCode } from '@/lib/pending-invite';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
-import { ensurePurchasesConfigured, syncPurchasesIdentity } from '@/lib/purchases';
+import { ensurePurchasesConfigured } from '@/lib/purchases';
+import { HouseholdProvider, useMeState } from '@/state/household';
+import { HouseholdSocketProvider } from '@/state/household-socket';
+import { useOnboardingActive } from '@/state/onboarding-flag';
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
 SplashScreen.preventAutoHideAsync();
 // A language picked in an earlier session; until it is read, the phone's language shows.
 restoreLanguageSetting().catch(() => {});
 
-// Without a handler, a push arriving while the app is open is swallowed entirely -
-// no banner, no sound, and (crucially) the payload's badge count is never applied.
+// Without a handler, a push arriving while the app is open is swallowed entirely.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -50,9 +43,8 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * If anything throws during render, show the error on screen instead of silently
- * hanging on the splash - production builds have no dev overlay, so without this a
- * render crash is indistinguishable from an infinite splash.
+ * Production builds have no dev overlay, so a render crash would otherwise look like an
+ * endless splash. Show it instead.
  */
 class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -69,7 +61,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     if (this.state.error) {
       return (
         <ScrollView style={errorStyles.root} contentContainerStyle={errorStyles.content}>
-          <Text style={errorStyles.title}>Noe gikk galt</Text>
+          <Text style={errorStyles.title}>Noe gikk galt / Something went wrong</Text>
           <Text style={errorStyles.message}>{String(this.state.error?.message ?? this.state.error)}</Text>
           <Text style={errorStyles.stack}>{this.state.error?.stack}</Text>
         </ScrollView>
@@ -81,19 +73,18 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 
 function NavigationTheme({ children }: { children: ReactNode }) {
   const { tokens, scheme } = usePalette();
-
   return (
     <ThemeProvider
       value={{
         dark: scheme === 'dark',
         fonts: DefaultTheme.fonts,
         colors: {
-          primary: tokens.brand,
-          background: tokens.background,
-          card: tokens.backgroundElement,
+          primary: tokens.magne,
+          background: tokens.door,
+          card: tokens.door,
           text: tokens.text,
           border: tokens.border,
-          notification: tokens.danger,
+          notification: tokens.magne,
         },
       }}>
       {children}
@@ -101,267 +92,126 @@ function NavigationTheme({ children }: { children: ReactNode }) {
   );
 }
 
+/** The door while it loads: Magne pulling, one line of text. */
+function Waiting({ error, onRetry }: { error?: unknown; onRetry?: () => void }) {
+  const { t } = useTranslation();
+  const { tokens } = usePalette();
+  return (
+    <View style={[styles.center, { backgroundColor: tokens.door }]}>
+      <Magne pose={error ? 'lurer' : 'trekker'} size={110} />
+      <Text style={[styles.waitText, { color: tokens.textSecondary }]}>
+        {error ? errorMessage(error) : t('loading')}
+      </Text>
+      {error && onRetry ? (
+        <Text onPress={onRetry} accessibilityRole="button" style={[styles.retry, { color: tokens.text }]}>
+          {t('actions.retry')}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Everything that needs a signed-in user: push token, notification taps. */
+function SignedInEffects() {
+  useEffect(() => {
+    const sync = () => syncPushTokenIfGranted().catch((e) => console.warn('Could not sync push token', e));
+    sync();
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && sync());
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    const open = (n: Notifications.Notification) => {
+      const data = n.request.content.data as { noteId?: string; eventId?: string } | undefined;
+      if (data?.noteId) router.push({ pathname: '/note/[id]', params: { id: data.noteId } });
+      else if (data?.eventId) router.push({ pathname: '/event/[id]', params: { id: data.eventId } });
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last) open(last.notification);
+    const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification));
+    return () => sub.remove();
+  }, []);
+
+  return null;
+}
+
 /**
- * How long the launch spinner quietly keeps trying /api/me before admitting defeat.
- *
- * The first request after signing in can fail fast for reasons that clear themselves a
- * second later - supabase-js still swapping tokens, a backend that has not seen this
- * user's brand-new JWT yet. SWR does retry on its own, but its first retry is scheduled
- * 5-15 seconds out, and `isValidating` is false while it waits - so the error screen was
- * painted immediately after every fast failure, and "Prøv igjen" then succeeded at once
- * because nothing had actually been wrong. These delays replace SWR's backoff for this
- * one key: roughly fifteen seconds of spinner, then the error screen.
+ * The three worlds, each behind a guard:
+ * signed out → (auth); signed in without a household (or mid-onboarding) → (onboarding);
+ * otherwise → the tabs and everything opened from them.
  */
-const PROFILE_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+function SignedInNavigator() {
+  const { me, meError, meLoading, mutateMe, current } = useMeState();
+  const onboardingActive = useOnboardingActive();
+
+  if (!me || meLoading || onboardingActive === undefined) {
+    return <Waiting error={me ? undefined : meError} onRetry={() => mutateMe()} />;
+  }
+
+  const inOnboarding = !current || onboardingActive;
+
+  return (
+    <>
+      <SignedInEffects />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={inOnboarding}>
+          <Stack.Screen name="(onboarding)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!inOnboarding}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="note/[id]" />
+          <Stack.Screen name="note/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="event/[id]" />
+          <Stack.Screen name="event/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="list/[id]" />
+          <Stack.Screen name="shop/[id]" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="activity" />
+          <Stack.Screen name="me" />
+          <Stack.Screen name="areas" />
+          <Stack.Screen name="member/[id]" />
+          <Stack.Screen name="kid/[id]" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="pluss" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
+        {/* Reachable from a link whether or not you already have a household. */}
+        <Stack.Screen name="join/[code]" />
+        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="design" />
+      </Stack>
+    </>
+  );
+}
 
 function RootNavigator() {
   const { status } = useAuth();
-  // True once every delay above has been used up on a single stretch of failures. Only
-  // then is the failure something to show - see profileFailed below.
-  const [profileGaveUp, setProfileGaveUp] = useState(false);
-  const retryProfile = useCallback<NonNullable<SWRConfiguration['onErrorRetry']>>(
-    (error, _key, _config, revalidate, opts) => {
-      // retryCount is 1 on the first retry.
-      const delay = PROFILE_RETRY_DELAYS_MS[opts.retryCount - 1];
-      if (__DEV__) console.warn(`[me] attempt ${opts.retryCount} failed`, error);
-      if (delay === undefined) {
-        setProfileGaveUp(true);
-        return;
-      }
-      setTimeout(() => revalidate(opts), delay);
-    },
-    []
-  );
-  const {
-    data: me,
-    error: meError,
-    isValidating: isValidatingMe,
-    mutate: mutateMe,
-  } = useSWR(status === 'signedIn' ? 'me' : null, api.me, {
-    onErrorRetry: retryProfile,
-    onSuccess: () => setProfileGaveUp(false),
-  });
-  // A fresh sign-in starts the retry budget over.
-  useEffect(() => {
-    if (status !== 'signedIn') setProfileGaveUp(false);
-  }, [status]);
-  const { mutate } = useSWRConfig();
-  const meId = me?.id;
-  const collectiveId = me?.collective?.id;
 
-  // Warm the two screens that otherwise have no reason to fetch until their tab opens.
-  // SWR shares these cache keys with Meg and Handleliste, so opening either screen can
-  // render immediately while any later background refresh happens invisibly.
-  useSWR(collectiveId ? 'my-stats' : null, api.myStats);
-  useSWR(collectiveId ? 'shopping-items' : null, api.shoppingItems);
-
-  // Configuring the SDK doesn't depend on being signed in - do it as early as the app
-  // renders anything, same reasoning as RevenueCat's own setup guidance. Identity only
-  // syncs once a collective is known, since that (not the user) is who's billed - see
-  // src/lib/purchases.ts.
   useEffect(() => {
     ensurePurchasesConfigured();
   }, []);
 
   useEffect(() => {
-    if (!collectiveId) return;
-    syncPurchasesIdentity(collectiveId).catch((error) => {
-      console.warn('Could not sync purchases identity', error);
-    });
-    // A QR code scanned while signed out is for joining a collective; someone who signs
-    // in and turns out to have one already should not carry it around until they leave.
-    clearPendingInviteCode();
-  }, [collectiveId]);
+    if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
+  }, [status]);
 
-  // Pushed the instant RevenueCatWebhookController finishes processing a purchase -
-  // without this, billing status only caught up whenever something else happened to
-  // revalidate it (reopening the sheet, a poll interval), which read as "nothing updated"
-  // right after a purchase that had, in fact, gone through.
-  useCollectiveEvent('SUBSCRIPTION_UPDATED', () => {
-    mutate('billing-status');
-  });
+  if (status === 'loading') return null;
 
-  useEffect(() => {
-    if (status !== 'signedIn' || !meId) return;
-
-    const syncToken = () => {
-      syncPushTokenIfGranted().catch((error) => {
-        console.warn('Could not sync push token', error);
-      });
-    };
-
-    syncToken();
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') syncToken();
-    });
-    return () => subscription.remove();
-  }, [status, meId]);
-
-  useEffect(() => {
-    if (status !== 'signedIn' || !meId) return;
-
-    const redirect = (notification: Notifications.Notification): boolean => {
-      const url = notification.request.content.data?.url;
-      if (typeof url !== 'string') return false;
-
-      if (url.startsWith('/weekly-summary')) {
-        const weekStart = /[?&]weekStart=(\d{4}-\d{2}-\d{2})/.exec(url)?.[1];
-        router.push({
-          pathname: '/weekly-summary',
-          params: weekStart ? { weekStart } : {},
-        });
-        return true;
-      }
-
-      if (url.startsWith('/subscription-welcome')) {
-        const plan = /[?&]plan=(base|plus)/.exec(url)?.[1] ?? 'base';
-        const rawPayer = /[?&]payer=([^&]*)/.exec(url)?.[1];
-        let payer: string | undefined;
-        try {
-          payer = rawPayer ? decodeURIComponent(rawPayer.replace(/\+/g, ' ')) : undefined;
-        } catch {
-          payer = undefined;
-        }
-        router.push({
-          pathname: '/subscription-welcome',
-          params: payer ? { plan, payer } : { plan },
-        });
-        return true;
-      }
-
-      return false;
-    };
-
-    const lastResponse = Notifications.getLastNotificationResponse();
-    if (lastResponse?.notification && redirect(lastResponse.notification)) {
-      Notifications.clearLastNotificationResponse();
-    }
-
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      redirect(response.notification);
-    });
-    return () => subscription.remove();
-  }, [status, meId]);
-
-  // A failed /api/me is not the same as a slow one, and this screen used to render both
-  // as an identical spinner that never resolved - an unreachable backend looked exactly
-  // like the app hanging on launch, with no way out but force-quitting. SWR keeps `data`
-  // undefined on a first-load error, so the error has to be checked explicitly rather
-  // than inferred from the absence of data. `profileGaveUp` is what keeps a single fast
-  // failure off the screen: the spinner stays up through the whole retry ladder above,
-  // and the error only shows once that has run out with nothing to show for it.
-  const profileFailed =
-    status === 'signedIn' && !me && !!meError && !isValidatingMe && profileGaveUp;
-  const stillResolvingProfile = status === 'signedIn' && !me && !profileFailed;
-
-  if (profileFailed) {
+  if (status === 'signedOut') {
     return (
-      <ThemedView style={styles.loading}>
-        <Image
-          source={require('@/assets/images/android-icon-foreground.png')}
-          style={styles.loadingMark}
-          contentFit="contain"
-        />
-        <ThemedText type="heading" style={styles.loadingText}>
-          Får ikke kontakt
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.loadingText}>
-          Sjekk at du er på nett og prøv igjen.
-        </ThemedText>
-        <PrimaryButton
-          label="Prøv igjen"
-          onPress={() => {
-            setProfileGaveUp(false);
-            mutateMe();
-          }}
-          loading={isValidatingMe}
-        />
-      </ThemedView>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="join/[code]" />
+        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="design" />
+      </Stack>
     );
   }
-
-  if (status === 'loading' || stillResolvingProfile) {
-    return (
-      <ThemedView style={styles.loading}>
-        <Image
-          source={require('@/assets/images/android-icon-foreground.png')}
-          style={styles.loadingMark}
-          contentFit="contain"
-        />
-        <RefreshSpinner active />
-      </ThemedView>
-    );
-  }
-
-  // Onboarding now covers both halves of getting started: who you are, then which
-  // collective you're in. Neither is optional, so a profile without a collective (a fresh
-  // sign-up mid-flow, or someone who just left one) resumes at the second step rather
-  // than landing in an app where every tab needs a collective to work.
-  const needsOnboarding = status === 'signedIn' && !!me && (!me.onboarded || !me.collective);
 
   return (
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={status === 'signedIn' && !needsOnboarding}>
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="settings" options={{ presentation: 'card' }} />
-          <Stack.Screen name="profile" options={{ presentation: 'card' }} />
-          <Stack.Screen name="notification-settings" options={{ presentation: 'card' }} />
-
-          <Stack.Protected guard={!!collectiveId}>
-            <Stack.Screen name="balance" options={{ presentation: 'card' }} />
-            <Stack.Screen name="collective-settings" options={{ presentation: 'card' }} />
-            {/* Full screen, not a sheet: the weekly story is edge-to-edge and paints its
-                own background all the way into the safe areas. */}
-            <Stack.Screen name="weekly-summary" options={{ presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="tasks" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="expenses" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="starter-pack" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="weeks" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
-            {/* Dark edge to edge, like the weekly story - a sheet would leave the light
-                app peeking out around it. */}
-            <Stack.Screen name="subscription-welcome" options={{ presentation: 'fullScreenModal' }} />
-          </Stack.Protected>
-        </Stack.Protected>
-
-        <Stack.Protected guard={needsOnboarding}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
-
-        <Stack.Protected guard={status === 'signedOut'}>
-          <Stack.Screen name="sign-in" />
-        </Stack.Protected>
-
-        {/* Declared last, and that matters: the first screen in a Stack is its anchor, so
-            whatever sits here is where the router falls back when the screen you are on
-            gets unmounted. These two are ungated, so having them first meant that leaving
-            a collective - which tears down every guarded screen at once - dropped you on
-            the terms of use with no way back.
-
-            Ungated on purpose all the same: onboarding's consent checkbox links to these
-            documents before onboarding can finish (and guideline 5.1.1(i) asks for that),
-            and the new-collective flow creates the collective on its first step but runs
-            for two more, so a guarded version would vanish mid-flow the moment `me`
-            revalidated - before anyone had seen the invite code. */}
-        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
-        {/* The living design system - reachable signed in or out, at /design. */}
-        <Stack.Screen name="design" />
-        <Stack.Screen name="new-collective" />
-        {/* Where a scanned invite QR code lands. Ungated for the same reason: the link
-            arrives before the app knows whether its holder is signed in. */}
-        <Stack.Screen name="join" />
-        {/* Where the "Glemt passord" email lands. Ungated for the same reason again: the
-            person opening it is, by definition, someone who cannot sign in yet. */}
-        <Stack.Screen name="reset-password" />
-      </Stack>
-      {status === 'signedIn' && !needsOnboarding && meId && collectiveId ? (
-        <>
-          <WeeklySummaryGate userId={meId} />
-          <SubscriptionWelcomeGate />
-        </>
-      ) : null}
-    </>
+    <HouseholdProvider>
+      <HouseholdSocketProvider>
+        <SignedInNavigator />
+      </HouseholdSocketProvider>
+    </HouseholdProvider>
   );
 }
 
@@ -376,46 +226,22 @@ export default function RootLayout() {
     Kalam_700Bold,
   });
 
-  // The app's sounds are short UI effects - a ding when a bill is settled, a pop for a
-  // new message. Without this, expo-audio takes the platform defaults, which are meant
-  // for media apps: iOS's session category pauses whatever else is playing the moment a
-  // sound starts, and Android asks for exclusive audio focus. Both stopped someone's
-  // music or podcast for a half-second ding. Mixing lets the effect play on top, and
-  // playsInSilentMode false keeps it obeying the mute switch like a UI sound should.
-  useEffect(() => {
-    setAudioModeAsync({
-      interruptionMode: 'mixWithOthers',
-      playsInSilentMode: false,
-      shouldPlayInBackground: false,
-    }).catch((error) => {
-      console.warn('Could not configure audio mode', error);
-    });
-  }, []);
-
-  // Failsafe: never let font loading strand the user on the native splash. If fonts
-  // haven't resolved either way within 3s, render anyway with system font fallbacks.
+  // Never strand anyone on the native splash: after 3 s render with system fonts.
   const [fontTimeout, setFontTimeout] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setFontTimeout(true), 3000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Native splash stays visible (preventAutoHideAsync) until fonts are in - but a
-  // font *error* (or hang) must not block rendering forever.
-  if (!fontsLoaded && !fontError && !fontTimeout) {
-    return null;
-  }
+  if (!fontsLoaded && !fontError && !fontTimeout) return null;
 
   return (
     <RootErrorBoundary>
       <PaletteProvider>
         <NavigationTheme>
           <AuthProvider>
-            <CollectiveSocketProvider>
-              <AnimatedSplashOverlay />
-              <RootNavigator />
-              <OfflineBanner />
-            </CollectiveSocketProvider>
+            <RootNavigator />
+            <OfflineBanner />
           </AuthProvider>
         </NavigationTheme>
       </PaletteProvider>
@@ -424,44 +250,29 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loading: {
+  center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
     paddingHorizontal: 32,
   },
-  loadingMark: {
-    width: 72,
-    height: 72,
-  },
-  loadingText: {
+  waitText: {
+    fontFamily: FontFamily.hand,
+    fontSize: 20,
     textAlign: 'center',
+  },
+  retry: {
+    fontFamily: FontFamily.bold,
+    fontSize: 15,
+    padding: 10,
   },
 });
 
 const errorStyles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#F5EEE1',
-  },
-  content: {
-    padding: 24,
-    paddingTop: 80,
-    gap: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  message: {
-    fontSize: 15,
-    color: '#B3261E',
-  },
-  stack: {
-    fontSize: 11,
-    color: '#666666',
-    fontFamily: 'Courier',
-  },
+  root: { flex: 1, backgroundColor: '#DCE6E8' },
+  content: { padding: 24, paddingTop: 80, gap: 12 },
+  title: { fontSize: 20, fontWeight: '700', color: '#1B2326' },
+  message: { fontSize: 15, color: '#B92C1A' },
+  stack: { fontSize: 11, color: '#55666B', fontFamily: 'Courier' },
 });

@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { api } from '@/lib/api';
+import { api } from '@/api';
 
 const DEFAULT_CHANNEL_ID = 'default';
 
@@ -41,7 +41,7 @@ function getProjectId() {
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
-    throw new Error('EAS projectId mangler i app-konfigurasjonen.');
+    throw new Error('EAS projectId missing from the app config.');
   }
   return projectId;
 }
@@ -61,7 +61,7 @@ export async function syncPushTokenIfGranted(): Promise<boolean> {
   const { data: token } = await Notifications.getExpoPushTokenAsync({
     projectId: getProjectId(),
   });
-  await api.registerPushToken(token);
+  await api.me.setPushToken(token);
   return true;
 }
 
@@ -80,7 +80,7 @@ export async function requestAndRegisterPushToken(): Promise<Notifications.Permi
     const { data: token } = await Notifications.getExpoPushTokenAsync({
       projectId: getProjectId(),
     });
-    await api.registerPushToken(token);
+    await api.me.setPushToken(token);
   }
 
   return isNotificationPermissionGranted(permission)
@@ -90,7 +90,7 @@ export async function requestAndRegisterPushToken(): Promise<Notifications.Permi
 
 export async function clearPushToken() {
   try {
-    await api.registerPushToken(null);
+    await api.me.setPushToken(null);
   } catch {
     // Best-effort - not worth surfacing to the user.
   }

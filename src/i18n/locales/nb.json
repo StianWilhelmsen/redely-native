@@ -1,0 +1,57 @@
+{
+  "app": {
+    "name": "Magneten",
+    "tagline": "Hele familien. Én dør."
+  },
+  "note": {
+    "done": "gjort!",
+    "markDone": "Marker som gjort: {{title}}",
+    "nextUp": "Neste nå",
+    "inMinutes": "om {{count}} min"
+  },
+  "magne": {
+    "name": "Magne",
+    "label": "Magne, en rød magnet med ansikt",
+    "pose": {
+      "hei": "Hei",
+      "smack": "Smack",
+      "glad": "Glad",
+      "jubler": "Jubler",
+      "trekker": "Trekker",
+      "lurer": "Lurer",
+      "sover": "Sover"
+    },
+    "says": {
+      "hei": "Hei! Jeg er Magne. Jeg holder styr på døra deres.",
+      "smack": "Smack! Den sitter.",
+      "glad": "Fint! Én mindre å tenke på.",
+      "jubler": "Hele døra er ryddet!",
+      "trekker": "Ukeplanen er lest. Jeg fant {{count}} ting.",
+      "lurer": "Hvem skal ta denne?",
+      "sover": "Døra er tom. God kveld!"
+    }
+  },
+  "magnet": {
+    "photoOf": "Bilde av {{name}}",
+    "noPhoto": "Profil uten bilde"
+  },
+  "design": {
+    "title": "Designsystem",
+    "addNote": "Ny lapp",
+    "resetDoor": "Tøm døra",
+    "language": "Språk",
+    "notesHeading": "Lapper",
+    "magnetsHeading": "Fotomagneter",
+    "magneHeading": "Magne"
+  },
+  "demo": {
+    "notes": {
+      "pickup": "Hente Emma på SFO",
+      "dishes": "Tømme oppvasken",
+      "taco": "Taco-torsdag",
+      "gift": "Gave til Ella",
+      "gym": "Gymtøy frem",
+      "drop": "Levere Oskar i bhg"
+    }
+  }
+}

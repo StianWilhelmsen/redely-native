@@ -1,11 +1,12 @@
+import { Kalam_400Regular, Kalam_700Bold } from '@expo-google-fonts/kalam';
 import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-  Poppins_800ExtraBold,
+  RethinkSans_400Regular,
+  RethinkSans_500Medium,
+  RethinkSans_600SemiBold,
+  RethinkSans_700Bold,
+  RethinkSans_800ExtraBold,
   useFonts,
-} from '@expo-google-fonts/poppins';
+} from '@expo-google-fonts/rethink-sans';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { setAudioModeAsync } from 'expo-audio';
 import { Image } from 'expo-image';
@@ -25,6 +26,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeeklySummaryGate } from '@/components/weekly-summary-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { restoreLanguageSetting } from '@/i18n';
 import { api } from '@/lib/api';
 import { CollectiveSocketProvider, useCollectiveEvent } from '@/lib/collective-socket';
 import { clearPendingInviteCode } from '@/lib/pending-invite';
@@ -33,6 +35,8 @@ import { ensurePurchasesConfigured, syncPurchasesIdentity } from '@/lib/purchase
 import { PaletteProvider, usePalette } from '@/theme/palette-context';
 
 SplashScreen.preventAutoHideAsync();
+// A language picked in an earlier session; until it is read, the phone's language shows.
+restoreLanguageSetting().catch(() => {});
 
 // Without a handler, a push arriving while the app is open is swallowed entirely -
 // no banner, no sound, and (crucially) the payload's badge count is never applied.
@@ -341,6 +345,8 @@ function RootNavigator() {
             for two more, so a guarded version would vanish mid-flow the moment `me`
             revalidated - before anyone had seen the invite code. */}
         <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
+        {/* The living design system - reachable signed in or out, at /design. */}
+        <Stack.Screen name="design" />
         <Stack.Screen name="new-collective" />
         {/* Where a scanned invite QR code lands. Ungated for the same reason: the link
             arrives before the app knows whether its holder is signed in. */}
@@ -361,11 +367,13 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
+    RethinkSans_400Regular,
+    RethinkSans_500Medium,
+    RethinkSans_600SemiBold,
+    RethinkSans_700Bold,
+    RethinkSans_800ExtraBold,
+    Kalam_400Regular,
+    Kalam_700Bold,
   });
 
   // The app's sounds are short UI effects - a ding when a bill is settled, a pop for a

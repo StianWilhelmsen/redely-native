@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.three,
     fontSize: 22,
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: 'RethinkSans_700Bold',
   },
   assigneeRow: {
     flexDirection: 'row',

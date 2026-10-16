@@ -55,6 +55,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initial: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: 'RethinkSans_700Bold',
   },
 });

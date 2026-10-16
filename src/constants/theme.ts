@@ -20,53 +20,92 @@ export type PaletteTokens = {
   brandSecondary: string;
   success: string;
   danger: string;
+  /** The fridge door every screen sits on. Same as `background`, named for intent. */
+  door: string;
+  /** Plain note paper; also the surface for cards, inputs and sheets. */
+  paper: string;
+  paperYellow: string;
+  paperPink: string;
+  paperMint: string;
+  /** Text printed on any paper colour - paper keeps its own ink in dark mode too. */
+  paperInk: string;
+  /** The "gjort!" stamp. */
+  stamp: string;
+  /** Magne's red - reserved for the mascot, the + button and Pluss. */
+  magne: string;
+  /** The dark pill tab bar and primary buttons. */
+  ink: string;
+  onInk: string;
 };
 
 /**
- * The app has one look, in two schemes. There used to be four selectable palettes; the
- * redesign replaced them with a single signature set, and a stored choice from the old
- * switcher would otherwise have kept overriding it with no way left to change it back.
+ * Magneten has one look - the fridge door - in two schemes. Colours come from the design
+ * canvas ("Kjøleskapsdøra · designsystem"); keep the two in step when either changes.
  */
 export const Theme: { light: PaletteTokens; dark: PaletteTokens } = {
   light: {
-    text: '#1F1B18',
-    textSecondary: '#8A7F76',
-    background: '#FFFFFF',
-    backgroundElement: '#F6F1EA',
-    backgroundSelected: '#F1EBE3',
-    border: '#EFE8DF',
-    brand: '#E9604F',
+    text: '#1B2326',
+    textSecondary: '#55666B',
+    background: '#DCE6E8',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#EEF2F3',
+    border: '#C9D3D6',
+    brand: '#E8402A',
     onBrand: '#FFFFFF',
-    brandSecondary: '#B8483A',
-    success: '#4E9B6C',
-    danger: '#C24632',
+    brandSecondary: '#B92C1A',
+    success: '#1E7A4F',
+    danger: '#B92C1A',
+    door: '#DCE6E8',
+    paper: '#FFFFFF',
+    paperYellow: '#FFE873',
+    paperPink: '#FFC6D3',
+    paperMint: '#C9F0DD',
+    paperInk: '#1B2326',
+    stamp: '#1E7A4F',
+    magne: '#E8402A',
+    ink: '#1B2326',
+    onInk: '#FFFFFF',
   },
   dark: {
-    text: '#F1ECE6',
-    textSecondary: '#8F8781',
-    background: '#141316',
-    backgroundElement: '#1F1E23',
-    // Tiles and hairlines share one value in dark: at these sizes a filled tile and a
-    // rule are the same gesture - a step up off the background.
-    backgroundSelected: '#26242A',
-    border: '#26242A',
-    brand: '#F07A6A',
-    onBrand: '#2A1A16',
-    brandSecondary: '#F5A093',
-    success: '#6FBF8B',
-    danger: '#E4574A',
+    text: '#E6ECEE',
+    textSecondary: '#93A3A8',
+    background: '#161E21',
+    backgroundElement: '#2B3539',
+    backgroundSelected: '#243034',
+    border: '#2E3A3E',
+    brand: '#FF5A43',
+    onBrand: '#FFFFFF',
+    brandSecondary: '#FF8A78',
+    success: '#5FD39A',
+    danger: '#FF8A78',
+    door: '#161E21',
+    paper: '#2B3539',
+    paperYellow: '#4D4419',
+    paperPink: '#4A2732',
+    paperMint: '#1F3D33',
+    paperInk: '#EEF2F3',
+    stamp: '#5FD39A',
+    magne: '#FF5A43',
+    ink: '#0D1315',
+    onInk: '#FFFFFF',
   },
 };
 
 export type ThemeColor = keyof PaletteTokens;
 
-/** Poppins weight map — custom fonts need explicit families per weight (no synthesized bold). */
+/**
+ * Rethink Sans for everything you operate, Kalam (handwriting) only for what is "on the
+ * door": note titles, screen titles and Magne's lines. Custom fonts need an explicit
+ * family per weight - React Native does not synthesize bold.
+ */
 export const FontFamily = {
-  regular: 'Poppins_400Regular',
-  medium: 'Poppins_500Medium',
-  semiBold: 'Poppins_600SemiBold',
-  bold: 'Poppins_700Bold',
-  extraBold: 'Poppins_800ExtraBold',
+  regular: 'RethinkSans_400Regular',
+  medium: 'RethinkSans_500Medium',
+  semiBold: 'RethinkSans_600SemiBold',
+  bold: 'RethinkSans_700Bold',
+  extraBold: 'RethinkSans_800ExtraBold',
+  hand: 'Kalam_700Bold',
+  handRegular: 'Kalam_400Regular',
 } as const;
 
 export const Fonts = Platform.select({
@@ -126,17 +165,17 @@ export const Radii = {
 } as const;
 
 /**
- * Fixed categorical colours for per-member avatar badges. Deliberately outside the theme:
- * members need to stay distinct from each other and from the brand colour, in both
- * schemes, so these do not shift with light and dark.
+ * Magnet colours - one per household member, used as the ring of their photo magnet.
+ * Deliberately outside the theme: a person keeps their colour in both schemes. Red is
+ * left out on purpose; it belongs to Magne. The backend validates against this same list.
  */
 export const MemberColors = [
-  '#4E8A6B', // green
-  '#C1622A', // terracotta
-  '#7C5FA6', // purple
-  '#3F7CAC', // blue
-  '#A68A2E', // olive gold
-  '#B4526C', // rose
+  '#2F5BD8', // blå
+  '#7A4FD6', // lilla
+  '#1A9AA6', // petrol
+  '#E8B400', // sennep
+  '#E0559A', // rosa
+  '#5E9E2E', // gress
 ] as const;
 
 export function memberColor(userId: number): string {

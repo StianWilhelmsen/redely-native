@@ -124,3 +124,30 @@ export async function restorePurchases(): Promise<CustomerInfo> {
   if (!configured || !purchases) throw new PurchasesNotConfiguredError();
   return purchases.default.restorePurchases();
 }
+
+/** The two Pluss products, as set up in App Store Connect and RevenueCat. */
+export const PLUSS_PRODUCTS = {
+  yearly: 'magneten_pluss_yearly',
+  monthly: 'magneten_pluss_monthly',
+} as const;
+
+export type PlussPlan = keyof typeof PLUSS_PRODUCTS;
+
+/** The store's localized price per plan ("399,00 kr"), or null when the store can't be
+ *  asked (Expo Go, no API key, products not approved yet) - callers fall back to the
+ *  list prices then. Never throws. */
+export async function getPlussPrices(): Promise<Partial<Record<PlussPlan, string>> | null> {
+  const purchases = loadPurchases();
+  if (!configured || !purchases) return null;
+  try {
+    const products = await purchases.default.getProducts(Object.values(PLUSS_PRODUCTS));
+    const prices: Partial<Record<PlussPlan, string>> = {};
+    for (const plan of Object.keys(PLUSS_PRODUCTS) as PlussPlan[]) {
+      const product = products.find((p) => p.identifier === PLUSS_PRODUCTS[plan]);
+      if (product) prices[plan] = product.priceString;
+    }
+    return Object.keys(prices).length ? prices : null;
+  } catch {
+    return null;
+  }
+}

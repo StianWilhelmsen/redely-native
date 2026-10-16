@@ -62,6 +62,9 @@ const LANGUAGE_KEY = 'magneten:language';
  * so adding languages never costs an EAS build.
  */
 function deviceLanguage(): AppLanguage {
+  // Test override from .env.local (EXPO_PUBLIC_FORCE_LANGUAGE=nb|en); unset in real builds.
+  const forced = process.env.EXPO_PUBLIC_FORCE_LANGUAGE;
+  if (forced === 'nb' || forced === 'en') return forced;
   const code = Intl.DateTimeFormat().resolvedOptions().locale.split('-')[0].toLowerCase();
   return code === 'nb' || code === 'nn' || code === 'no' ? 'nb' : 'en';
 }

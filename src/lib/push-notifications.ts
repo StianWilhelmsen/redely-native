@@ -11,9 +11,14 @@ export async function getPermissionStatus() {
   return Notifications.getPermissionsAsync();
 }
 
-export function isNotificationPermissionGranted(
-  permission: Notifications.NotificationPermissionsStatus
-) {
+/**
+ * `granted`/`status` come from expo-modules-core's PermissionResponse, which expo 55 keeps
+ * nested under `expo/` - so TypeScript can't see them through expo-notifications' types.
+ * They are there at runtime; spell them out instead of adding expo-modules-core directly.
+ */
+type PermissionLike = Notifications.NotificationPermissionsStatus & { granted?: boolean; status?: string };
+
+export function isNotificationPermissionGranted(permission: PermissionLike) {
   if (permission.granted || permission.status === 'granted') return true;
   if (Platform.OS !== 'ios') return false;
 
@@ -85,7 +90,7 @@ export async function requestAndRegisterPushToken(): Promise<Notifications.Permi
 
   return isNotificationPermissionGranted(permission)
     ? Notifications.PermissionStatus.GRANTED
-    : permission.status;
+    : ((permission as PermissionLike).status as Notifications.PermissionStatus);
 }
 
 export async function clearPushToken() {

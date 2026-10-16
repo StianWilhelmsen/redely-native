@@ -1,1 +1,164 @@
-{}
+{
+  "kicker_one": "{{count}} liste på døra",
+  "kicker_other": "{{count}} lister på døra",
+  "title": "Huskelister",
+  "new": "Ny liste",
+  "templatesLabel": "Start fra en mal",
+  "templateA11y": "Lag liste fra malen {{name}}",
+  "empty": "Ingen lister på døra ennå.",
+  "emptyCta": "Lag handlelappen",
+  "defaultShoppingName": "Handlelappen",
+  "loading": "Henter listene …",
+  "tile": {
+    "shopping": "Handlelapp",
+    "left_one": "{{count}} igjen",
+    "left_other": "{{count}} igjen",
+    "allDone": "Alt er krysset av",
+    "emptyList": "Tom lapp",
+    "progress": "{{name}}, {{done}} av {{total}} krysset av"
+  },
+  "create": {
+    "title": "Ny liste",
+    "name": "Navn",
+    "namePlaceholder": "Pakkeliste hytta",
+    "kindShopping": "Handleliste",
+    "kindChecklist": "Huskeliste",
+    "store": "Butikk (valgfritt)",
+    "storePlaceholder": "Rema 1000",
+    "submit": "Fest på døra",
+    "nameRequired": "Gi lista et navn."
+  },
+  "templates": {
+    "cabin": {
+      "name": "Hyttetur",
+      "items": [
+        "Sengetøy og håndklær",
+        "Ullundertøy",
+        "Regntøy",
+        "Tøfler",
+        "Fyrstikker og tennbriketter",
+        "Mat til første kveld",
+        "Kaffe",
+        "Dopapir",
+        "Lommelykt",
+        "Ladere",
+        "Kortstokk og spill",
+        "Søppelsekker",
+        "Stenge vann og strøm før vi drar"
+      ]
+    },
+    "school": {
+      "name": "Skolestart",
+      "items": [
+        "Skolesekk",
+        "Pennal med blyanter og viskelær",
+        "Gymtøy og gymsko",
+        "Matboks og drikkeflaske",
+        "Innesko",
+        "Regntøy og støvler",
+        "Navnelapper i klær og sko",
+        "Bokbind",
+        "Sjekke SFO-plass",
+        "Legge foreldremøtet i kalenderen"
+      ]
+    },
+    "may17": {
+      "name": "17. mai",
+      "items": [
+        "Stryke bunad eller finklær",
+        "Flagg og vimpler",
+        "Sløyfe til jakka",
+        "Kontanter til is og pølser",
+        "Frokost: rundstykker, egg og laks",
+        "Kake til kaffen",
+        "Sjekke når barnetoget går",
+        "Plaster og solkrem",
+        "Lade telefonen til bilder"
+      ]
+    },
+    "winterTyres": {
+      "name": "Bytte til vinterdekk",
+      "items": [
+        "Bestille time på verksted",
+        "Sjekke mønsterdybde (minst 3 mm)",
+        "Finne frem dekk og felger",
+        "Hjulnøkkel og jekk",
+        "Sjekke dekktrykket",
+        "Etterstramme boltene etter 50–100 km",
+        "Vinterspylervæske",
+        "Isskrape og kost i bilen"
+      ]
+    },
+    "kidsParty": {
+      "name": "Barnebursdag",
+      "items": [
+        "Sende invitasjoner",
+        "Spørre om allergier",
+        "Kake og lys",
+        "Pølser og lomper",
+        "Saft og kopper",
+        "Ballonger og pynt",
+        "Leker og aktiviteter",
+        "Premier",
+        "Godteposer",
+        "Rydde etterpå"
+      ]
+    }
+  },
+  "list": {
+    "kickerShopping": "Handlelapp",
+    "kickerChecklist": "Huskeliste",
+    "countOf": "{{done}} av {{total}}",
+    "sortedFor": "Sortert for {{store}}",
+    "shopMode": "Butikkmodus",
+    "addPlaceholderShopping": "Skriv en vare …",
+    "addPlaceholderChecklist": "Skriv noe å huske …",
+    "add": "Legg til",
+    "finishShopping": "Ferdig handlet",
+    "finishChecklist": "Riv av det som er gjort",
+    "tornShopping": "Handlet! Lappen er revet av.",
+    "tornChecklist": "Ferdig! Det som er gjort er revet av.",
+    "tornSub_one": "{{count}} ting er fjernet fra lappen.",
+    "tornSub_other": "{{count}} ting er fjernet fra lappen.",
+    "backToList": "Tilbake til lappen",
+    "empty": "Lappen er tom. Skriv den første tingen nederst.",
+    "nothingDone": "Kryss av noe først.",
+    "share": "Del lista",
+    "more": "Mer om lista",
+    "tick": "Kryss av {{item}}",
+    "itemHint": "Hold inne for å endre",
+    "addedBy": "Lagt til av {{name}}",
+    "notFound": "Fant ikke lista. Kanskje den er slettet?"
+  },
+  "item": {
+    "title": "Endre",
+    "text": "Hva",
+    "quantity": "Mengde",
+    "quantityPlaceholder": "2 l",
+    "category": "Kategori",
+    "categoryPlaceholder": "Meieri",
+    "delete": "Slett fra lista"
+  },
+  "settings": {
+    "title": "Lista",
+    "name": "Navn",
+    "store": "Butikk",
+    "delete": "Slett lista",
+    "deleteTitle": "Slette «{{name}}»?",
+    "deleteBody": "Alt på lista forsvinner for alle."
+  },
+  "shop": {
+    "left_one": "{{count}} vare igjen",
+    "left_other": "{{count}} varer igjen",
+    "allFound": "Alt funnet!",
+    "other": "Annet",
+    "basket": "I kurven",
+    "basketEmpty": "Trykk på en vare når den ligger i kurven.",
+    "allInBasket": "Alt er i kurven!",
+    "finish": "Ferdig handlet",
+    "put": "Legg {{item}} i kurven",
+    "takeOut": "Ta {{item}} ut av kurven",
+    "progress": "{{done}} av {{total}} i kurven",
+    "empty": "Ingenting å handle. Nyt dagen!"
+  }
+}

@@ -12,13 +12,9 @@ import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect, useState, type ReactNode } from 'react';
-import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { AppState, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { errorMessage } from '@/api';
-import { Magne } from '@/components/magneten/magne';
 import { OfflineBanner } from '@/components/offline-banner';
-import { FontFamily } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { restoreLanguageSetting } from '@/i18n';
 import { takePendingInviteCode } from '@/lib/pending-invite';
@@ -93,25 +89,6 @@ function NavigationTheme({ children }: { children: ReactNode }) {
   );
 }
 
-/** The door while it loads: Magne pulling, one line of text. */
-function Waiting({ error, onRetry }: { error?: unknown; onRetry?: () => void }) {
-  const { t } = useTranslation();
-  const { tokens } = usePalette();
-  return (
-    <View style={[styles.center, { backgroundColor: tokens.door }]}>
-      <Magne pose={error ? 'lurer' : 'trekker'} size={110} />
-      <Text style={[styles.waitText, { color: tokens.textSecondary }]}>
-        {error ? errorMessage(error) : t('loading')}
-      </Text>
-      {error && onRetry ? (
-        <Text onPress={onRetry} accessibilityRole="button" style={[styles.retry, { color: tokens.text }]}>
-          {t('actions.retry')}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 /** Everything that needs a signed-in user: push token, notification taps, invite links. */
 function SignedInEffects({ onDoor }: { onDoor: boolean }) {
   // An invite link opened while signed out is parked until sign-in. Someone without a
@@ -145,28 +122,46 @@ function SignedInEffects({ onDoor }: { onDoor: boolean }) {
 }
 
 /**
- * The three worlds, each behind a guard:
- * signed out → (auth); signed in without a household (or mid-onboarding) → (onboarding);
- * otherwise → the tabs and everything opened from them.
+ * One navigator for the whole app, with guards deciding which routes exist:
+ * still loading → "waiting"; signed out → (auth); signed in without a household (or
+ * mid-onboarding) → (onboarding); otherwise the tabs and everything opened from them.
+ *
+ * It must stay ONE <Stack>: swapping navigators on sign-in left the user stranded on the
+ * code screen, because the router kept the old route. With guards, the router itself
+ * moves people to the first route that just became available.
  */
-function SignedInNavigator() {
-  const { me, meError, meLoading, mutateMe, current } = useMeState();
+function RootNavigator() {
+  const { status } = useAuth();
+  const { me, meLoading, current } = useMeState();
   const onboardingActive = useOnboardingActive();
 
-  if (!me || meLoading || onboardingActive === undefined) {
-    return <Waiting error={me ? undefined : meError} onRetry={() => mutateMe()} />;
-  }
+  useEffect(() => {
+    ensurePurchasesConfigured();
+  }, []);
 
-  const inOnboarding = !current || onboardingActive;
+  useEffect(() => {
+    if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
+  }, [status]);
+
+  const signedIn = status === 'signedIn';
+  const ready =
+    status === 'signedOut' || (signedIn && !!me && !meLoading && onboardingActive !== undefined);
+  const inOnboarding = !current || !!onboardingActive;
 
   return (
     <>
-      <SignedInEffects onDoor={!inOnboarding} />
+      {signedIn && ready ? <SignedInEffects onDoor={!inOnboarding} /> : null}
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={inOnboarding}>
+        <Stack.Protected guard={!ready}>
+          <Stack.Screen name="waiting" options={{ animation: 'fade' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={ready && status === 'signedOut'}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={ready && signedIn && inOnboarding}>
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
-        <Stack.Protected guard={!inOnboarding}>
+        <Stack.Protected guard={ready && signedIn && !inOnboarding}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="note/[id]" />
           <Stack.Screen name="note/new" options={{ presentation: 'modal' }} />
@@ -182,45 +177,12 @@ function SignedInNavigator() {
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
           <Stack.Screen name="pluss" options={{ presentation: 'modal' }} />
         </Stack.Protected>
-        {/* Reachable from a link whether or not you already have a household. */}
+        {/* Reachable from a link whether or not you are signed in or have a household. */}
         <Stack.Screen name="join/[code]" />
         <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
         <Stack.Screen name="design" />
       </Stack>
     </>
-  );
-}
-
-function RootNavigator() {
-  const { status } = useAuth();
-
-  useEffect(() => {
-    ensurePurchasesConfigured();
-  }, []);
-
-  useEffect(() => {
-    if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
-  }, [status]);
-
-  if (status === 'loading') return null;
-
-  if (status === 'signedOut') {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="join/[code]" />
-        <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="design" />
-      </Stack>
-    );
-  }
-
-  return (
-    <HouseholdProvider>
-      <HouseholdSocketProvider>
-        <SignedInNavigator />
-      </HouseholdSocketProvider>
-    </HouseholdProvider>
   );
 }
 
@@ -249,34 +211,18 @@ export default function RootLayout() {
       <PaletteProvider>
         <NavigationTheme>
           <AuthProvider>
-            <RootNavigator />
-            <OfflineBanner />
+            <HouseholdProvider>
+              <HouseholdSocketProvider>
+                <RootNavigator />
+                <OfflineBanner />
+              </HouseholdSocketProvider>
+            </HouseholdProvider>
           </AuthProvider>
         </NavigationTheme>
       </PaletteProvider>
     </RootErrorBoundary>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    paddingHorizontal: 32,
-  },
-  waitText: {
-    fontFamily: FontFamily.hand, paddingHorizontal: 3,
-    fontSize: 20, lineHeight: 29,
-    textAlign: 'center',
-  },
-  retry: {
-    fontFamily: FontFamily.bold,
-    fontSize: 15,
-    padding: 10,
-  },
-});
 
 const errorStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#DCE6E8' },

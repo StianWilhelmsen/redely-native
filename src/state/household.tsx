@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import useSWR, { type KeyedMutator } from 'swr';
 
+import { useAuth } from '@/contexts/auth-context';
 import { api, keys, type Household, type Me, type Member, type MyHousehold, type Uuid } from '@/api';
 import { currentLanguage } from '@/i18n';
 import { syncPurchasesIdentity } from '@/lib/purchases';
@@ -33,7 +34,12 @@ type MeState = {
 const MeContext = createContext<MeState | null>(null);
 
 export function HouseholdProvider({ children }: { children: ReactNode }) {
-  const { data: me, error: meError, isLoading: meLoading, mutate: mutateMe } = useSWR(keys.me(), api.me.get);
+  const { status } = useAuth();
+  // Mounted for the whole app (one navigator), so it only asks for /api/me when signed in.
+  const { data: me, error: meError, isLoading: meLoading, mutate: mutateMe } = useSWR(
+    status === 'signedIn' ? keys.me() : null,
+    api.me.get
+  );
   const [storedId, setStoredId] = useState<Uuid | null | undefined>(undefined);
 
   useEffect(() => {
@@ -51,9 +57,9 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
   }, [me, mutateMe]);
 
   const current = useMemo<MyHousehold | null>(() => {
-    if (!me || storedId === undefined) return null;
+    if (status !== 'signedIn' || !me || storedId === undefined) return null;
     return me.households.find((x) => x.householdId === storedId) ?? me.households[0] ?? null;
-  }, [me, storedId]);
+  }, [status, me, storedId]);
 
   const switchHousehold = useCallback((hid: Uuid) => {
     setStoredId(hid);

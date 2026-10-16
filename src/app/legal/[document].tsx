@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -15,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
  * to be linked from the subscription purchase screen itself.
  */
 export default function LegalScreen() {
+  const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { document } = useLocalSearchParams<{ document: string }>();
@@ -27,7 +29,7 @@ export default function LegalScreen() {
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
-          accessibilityLabel="Tilbake"
+          accessibilityLabel={t('actions.back')}
           hitSlop={Spacing.two}
           style={styles.backButton}>
           <Ionicons name="chevron-back" size={20} color={theme.text} />
@@ -42,7 +44,7 @@ export default function LegalScreen() {
           {doc.title}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          Sist oppdatert {doc.updated}
+          {t('family.legal.updated', { date: doc.updated })}
         </ThemedText>
         <ThemedText type="small" style={styles.intro}>
           {doc.intro}

@@ -9,6 +9,7 @@
  * to the wrong household, so HouseholdProvider is the only place that calls
  * syncPurchasesIdentity.
  */
+import { Platform } from 'react-native';
 import type {
   CustomerInfo,
   PurchasesError,
@@ -22,7 +23,7 @@ import { env } from '@/lib/env';
 export class PurchaseCancelledError extends Error {}
 
 /** Thrown when a purchase/restore is attempted before configure() has run - possible if
- *  EXPO_PUBLIC_REVENUECAT_IOS_KEY was never set, or the SDK isn't in this binary. */
+ *  the platform's EXPO_PUBLIC_REVENUECAT_*_KEY was never set, or the SDK isn't in this binary. */
 export class PurchasesNotConfiguredError extends Error {}
 
 type PurchasesModule = typeof import('react-native-purchases');
@@ -57,17 +58,25 @@ let configured = false;
  *  Called once from the root layout on mount; nothing else should call this. */
 export function ensurePurchasesConfigured() {
   if (configured) return;
-  if (!env.revenueCatIosApiKey) {
+  // RevenueCat keys are per store: an Apple key configured on Android (or vice versa) is
+  // rejected by the SDK, so each platform strictly uses its own.
+  const apiKey = Platform.select({
+    ios: env.revenueCatIosApiKey,
+    android: env.revenueCatAndroidApiKey,
+  });
+  if (!apiKey) {
     // Expected on every machine until a real key is pasted into .env / eas.json - not a
     // crash, purchasePlan/restorePurchases below surface a clear error only if someone
     // actually taps the buy button before that happens.
-    if (__DEV__) console.warn('[purchases] EXPO_PUBLIC_REVENUECAT_IOS_KEY not set - purchases disabled.');
+    if (__DEV__) {
+      console.warn(`[purchases] No RevenueCat key for ${Platform.OS} - purchases disabled.`);
+    }
     return;
   }
   const purchases = loadPurchases();
   if (!purchases) return;
 
-  purchases.default.configure({ apiKey: env.revenueCatIosApiKey });
+  purchases.default.configure({ apiKey });
   configured = true;
 }
 

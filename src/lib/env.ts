@@ -49,4 +49,7 @@ export const env = {
   // someone pastes in a RevenueCat key - src/lib/purchases.ts checks for this itself and
   // no-ops with a clear error only when a purchase is actually attempted.
   revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+  // Google Play key from the same RevenueCat project ("goog_..."). Android purchases stay
+  // disabled until this is set - the iOS key must never be used on Android.
+  revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
 };
